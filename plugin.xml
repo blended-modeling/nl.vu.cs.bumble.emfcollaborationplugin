@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <extension
+         point="org.eclipse.ui.commands">
+      <category
+            id="nl.vu.cs.bumble.emfcollaborationplugin.commands.category"
+            name="Sample Category">
+      </category>
+      <command
+            categoryId="nl.vu.cs.bumble.emfcollaborationplugin.commands.category"
+            name="Sample Command"
+            id="nl.vu.cs.bumble.emfcollaborationplugin.commands.sampleCommand">
+      </command>
+   </extension>
+   <extension
+         point="org.eclipse.ui.handlers">
+      <handler
+            class="nl.vu.cs.bumble.emfcollaborationplugin.handlers.EmfHandler"
+            commandId="nl.vu.cs.bumble.emfcollaborationplugin.commands.sampleCommand">
+      </handler>
+   </extension>
+   <extension
+         point="org.eclipse.ui.bindings">
+      <key
+            commandId="nl.vu.cs.bumble.emfcollaborationplugin.commands.sampleCommand"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+            contextId="org.eclipse.ui.contexts.window"
+            sequence="M1+6">
+      </key>
+   </extension>
+   <extension
+         point="org.eclipse.ui.menus">
+      <menuContribution
+            locationURI="toolbar:org.eclipse.ui.main.toolbar?after=additions">
+         <toolbar
+               id="nl.vu.cs.bumble.emfcollaborationplugin.toolbars.sampleToolbar">
+            <command
+                  id="nl.vu.cs.bumble.emfcollaborationplugin.toolbars.sampleCommand"
+                  commandId="nl.vu.cs.bumble.emfcollaborationplugin.commands.sampleCommand"
+                  icon="icons/sample.png"
+                  tooltip="Say hello world">
+            </command>
+         </toolbar>
+      </menuContribution>
+   </extension>
+
+</plugin>
