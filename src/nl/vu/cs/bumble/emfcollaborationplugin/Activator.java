@@ -19,7 +19,6 @@ public class Activator extends AbstractUIPlugin {
 	private static Activator plugin;
 	
 	private static ModelServerClient modelServerClient;
-	private static ModelServerClientV2 testClient;
 	
 	/**
 	 * The constructor
@@ -32,9 +31,6 @@ public class Activator extends AbstractUIPlugin {
 		super.start(context);
 		plugin = this;
 		modelServerClient = new ModelServerClient("http://localhost:8081/api/v2/",
-	            new StateMachineConfiguration());
-		
-		testClient = new ModelServerClientV2("http://localhost:8081/api/v2/",
 	            new StateMachineConfiguration());
 	}
 

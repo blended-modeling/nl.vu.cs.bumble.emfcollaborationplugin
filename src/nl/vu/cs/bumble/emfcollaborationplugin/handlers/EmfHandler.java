@@ -109,62 +109,32 @@ public class EmfHandler extends AbstractHandler {
 			
 			if(this.isModelExistOnServer(modelUri)) {
 				try {
-					EObject newRootElement = this.updateLocalModel(modelUri, rootElement);
-					
-					ChangeRecorder recorder = new ChangeRecorder(newRootElement) {
-						public void notifyChanged(Notification notification) {
-							super.notifyChanged(notification);
-							System.out.println(notification);
-//							try {
-//								updateServer(modelUri, rootElement);
-//							} catch (EncodingException e) {
-//								// TODO Auto-generated catch block
-//								e.printStackTrace();
-//							}
-							testNotification(notification);
-						}
-					};
+					this.updateLocalModel(modelUri, rootElement);
+
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
+				
 			} else {
 				try {
 					this.addModelToModelInventory(modelUri, rootElement);
 					
-					ChangeRecorder recorder = new ChangeRecorder(rootElement) {
-						public void notifyChanged(Notification notification) {
-							super.notifyChanged(notification);
-							System.out.println(notification);
-//							try {
-//								updateServer(modelUri, rootElement);
-//							} catch (EncodingException e) {
-//								// TODO Auto-generated catch block
-//								e.printStackTrace();
-//							}
-							testNotification(notification);
-						}
-					};
 				} catch (EncodingException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			}
-						
-//			try {
-//				this.getModelFromModelInventory("statemachine.ecore");
-//			} catch (IOException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
-						
+			}	
 			
+			EObject newRootElement = this.getRootModel(editor);
+			ChangeHandler recorder = new ChangeHandler(newRootElement, client, modelUri);
+						
 		}
 
 			return null;
 		
 	};
-	
+		
 	private void addModelToModelInventory(String modelUri, EObject model) throws EncodingException {
 		String payload = this.convertEClassTypeToWorkspace(model);
 		Response<String> response = client.create(modelUri, payload).join();
@@ -184,28 +154,20 @@ public class EmfHandler extends AbstractHandler {
 		System.out.println("response: "+response.getMessage());
 	}
 	
-	private EObject updateLocalModel(String modelUri, EObject model) throws IOException {
+	private void updateLocalModel(String modelUri, EObject model) throws IOException {
 		String response = this.getModelFromModelInventory(modelUri);
 		String converted = this.convertEClassTypeToLocal(response);
 		EObject updatedModel = client.decode(converted, FORMAT_JSON_V2).get();
 		
-//		EStructuralFeature feature = model.eContainingFeature();
-//		System.out.println("feature : "+feature);
 		
 		try {
 		 model.eResource().getContents().set(0, updatedModel);		
 		 updatedModel.eResource().save(Collections.EMPTY_MAP);
 		 
-//		 model.eSet(feature, updatedModel);
-//		 
-//		 System.out.println("e set called");
-//		 model.eResource().save(Collections.EMPTY_MAP);
-		
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
-		return updatedModel;
 	}
 	
 	public String getModelFromModelInventory(String modelUri) throws IOException {
@@ -215,20 +177,7 @@ public class EmfHandler extends AbstractHandler {
 		return result;
 	}
 	
-	public void testNotification(Notification note) {
-		Object newValue = note.getNewValue();
-	    Optional<String> json = converter.toJson(newValue);
-		System.out.println("new value: " +  json);
-		
-		Object oldValue = note.getOldValue();
-	    Optional<String> old = converter.toJson(oldValue);
-		System.out.println("old value: " +  old);
-		
-		Object not = note.getNotifier();
-	    Optional<String> noteString = converter.toJson(not);
-		System.out.println("notifier: " +  noteString);
-		
-	}
+
 	
 	private void setEcorePath(EObject model) throws EncodingException {
 		JsonNode jsonRoot = converter.objectToJsonNode(model);
