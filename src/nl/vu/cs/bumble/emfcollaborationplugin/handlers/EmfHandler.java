@@ -72,7 +72,7 @@ public class EmfHandler extends AbstractHandler {
 	private ModelServerClient client = Activator.getModelServerClient();
 	private ConvertHandler converter = ConvertHandler.getConverter();
 	
-	private static final String SERVER_ECORE_PATH = "file:/Users/yunabell/Desktop/ivano_project/emf/emfcloud-modelserver-master/examples/org.eclipse.emfcloud.modelserver.example/.temp/workspace/statemachine.ecore";
+	private static final String SERVER_ECORE_PATH = "file:/Users/yunabell/Desktop/ivano_project/BUNDLE/emfcloud-modelserver-master/examples/org.eclipse.emfcloud.modelserver.example/.temp/workspace/statemachine.ecore";
 	private String LOCAL_ECORE_PATH = "";
 		
 	@SuppressWarnings("all")
@@ -188,6 +188,10 @@ public class EmfHandler extends AbstractHandler {
 	
 	private String convertEClassTypeToWorkspace(EObject model) throws EncodingException {
 		String json = client.encode(model, FORMAT_JSON_V2);
+		
+		System.out.println("local: " + LOCAL_ECORE_PATH);
+		System.out.println("server: " + SERVER_ECORE_PATH);
+		
 		String converted = json.replace(LOCAL_ECORE_PATH, SERVER_ECORE_PATH);
 		
 		return converted;

@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.change.util.ChangeRecorder;
+import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
 import org.eclipse.emfcloud.modelserver.common.codecs.EncodingException;
 
@@ -54,20 +55,20 @@ public class ChangeHandler {
 		
 	}
 	
-	private void testNotification(Notification note) {
-		Object newValue = note.getNewValue();
-	    Optional<String> json = converter.toJson(newValue);
-		System.out.println("new value: " +  json);
-		
-		Object oldValue = note.getOldValue();
-	    Optional<String> old = converter.toJson(oldValue);
-		System.out.println("old value: " +  old);
-		
-		Object not = note.getNotifier();
-	    Optional<String> noteString = converter.toJson(not);
-		System.out.println("notifier: " +  noteString);
-		
-	}
+//	private void testNotification(Notification note) {
+//		Object newValue = note.getNewValue();
+//	    Optional<String> json = converter.toJson(newValue);
+//		System.out.println("new value: " +  json);
+//		
+//		Object oldValue = note.getOldValue();
+//	    Optional<String> old = converter.toJson(oldValue);
+//		System.out.println("old value: " +  old);
+//		
+//		Object not = note.getNotifier();
+//	    Optional<String> noteString = converter.toJson(not);
+//		System.out.println("notifier: " +  noteString);
+//		
+//	}
 	
 	private String getPatchOp(Notification notification) {
 		String op = "";
@@ -90,19 +91,18 @@ public class ChangeHandler {
 	}
 	
 	private String getPatchPath(Notification notification) {
-		String path = "/";
+		String path = "";
 		
-		String simpleName = notification.getClass().getSimpleName();
-		String name = simpleName.substring(0,simpleName.length() - 4).toLowerCase();
+		EObject notifier = (EObject) notification.getNotifier();
+		String uri = EcoreUtil.getURI(notifier).toString();
 		
-		String index = "-";
-		
+		path = uri.split("#//")[1]; 
+		path = path.replace("@", "");
+		path = path.replace(".", "/");
+				
 		JsonNode featureJson;
-		
 		String feature = "?";
-		
-		
-		
+			
 		try {
 			featureJson = converter.objectToJsonNode((EObject)notification.getFeature());
 			feature = featureJson.get("name").asText();
@@ -111,7 +111,7 @@ public class ChangeHandler {
 			e.printStackTrace();
 		}
 		
-		path = path + name + index + feature;
+		path = "/" + path + "/" + feature;
 		
 		return path;
 	}
