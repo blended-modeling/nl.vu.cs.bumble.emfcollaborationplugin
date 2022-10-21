@@ -6,6 +6,9 @@ import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.change.util.ChangeRecorder;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
+import org.eclipse.emfcloud.modelserver.common.codecs.EncodingException;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class ChangeHandler {
 	
@@ -16,6 +19,7 @@ public class ChangeHandler {
 	public ChangeHandler(EObject root, ModelServerClient client, String modelUri) {
 		this.client = client;
 		this.modelUri = modelUri;
+		
 		
 		new ChangeRecorder(root) {
 			public void notifyChanged(Notification notification) {
@@ -29,18 +33,17 @@ public class ChangeHandler {
 	
 	private void handleModelChanges(Notification notification) {
 		System.out.println(notification);
-//		try {
-//			updateServer(modelUri, rootElement);
-//		} catch (EncodingException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-		testNotification(notification);
+		
+		
+//		testNotification(notification);
 		
 		Patch patch = new Patch();
-		patch.setOp("replace");
-		patch.setPath("StateMachine.xmi#//@input.0/name");
-		patch.setValue("testvalue");
+		patch.setOp(this.getPatchOp(notification));
+		
+//		patch.setPath("StateMachine.xmi#//@input.0/name");
+		
+		patch.setPath(this.getPatchPath(notification));
+		patch.setValue(this.getPatchValue(notification));
 		
 		Payload payload = new Payload();
 		payload.setData(patch);
@@ -64,6 +67,59 @@ public class ChangeHandler {
 	    Optional<String> noteString = converter.toJson(not);
 		System.out.println("notifier: " +  noteString);
 		
+	}
+	
+	private String getPatchOp(Notification notification) {
+		String op = "";
+		int type = notification.getEventType();
+		
+		switch (type) {
+			case 1:
+				op = "replace";
+				break;
+			case 3:
+				op = "add";
+				break;
+			case 4:
+				op = "remove";
+				break;
+		}
+		
+		return op;
+		
+	}
+	
+	private String getPatchPath(Notification notification) {
+		String path = "/";
+		
+		String simpleName = notification.getClass().getSimpleName();
+		String name = simpleName.substring(0,simpleName.length() - 4).toLowerCase();
+		
+		String index = "-";
+		
+		JsonNode featureJson;
+		
+		String feature = "?";
+		
+		
+		
+		try {
+			featureJson = converter.objectToJsonNode((EObject)notification.getFeature());
+			feature = featureJson.get("name").asText();
+		} catch (EncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		path = path + name + index + feature;
+		
+		return path;
+	}
+	
+	private String getPatchValue(Notification notification) {
+		String value = notification.getNewStringValue();
+		
+		return value;
 	}
 			
 	class Patch {
