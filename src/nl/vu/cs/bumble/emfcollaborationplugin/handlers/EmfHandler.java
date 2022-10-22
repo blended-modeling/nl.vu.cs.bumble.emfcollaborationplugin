@@ -127,10 +127,9 @@ public class EmfHandler extends AbstractHandler {
 			}	
 			
 			EObject newRootElement = this.getRootModel(editor);
-			ChangeHandler recorder = new ChangeHandler(newRootElement, client, modelUri);
+			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri);
 						
 		}
-
 			return null;
 		
 	};
@@ -141,19 +140,11 @@ public class EmfHandler extends AbstractHandler {
 		System.out.println("response: "+response.getMessage());
 	}
 	
-	private Boolean isModelExistOnServer(String modelUri) {
+	private Boolean isModelExistOnServer(String modelUri) {		
 		Response<String> response = client.get(modelUri).join();
 		return response.getStatusCode().equals(STATUS_OK);
 	}
-	
-	private void updateServer(String modelUri, EObject model) throws EncodingException {
-		System.out.println("update server called");
-		String payload = this.convertEClassTypeToWorkspace(model);
-
-		Response<String> response = client.update(modelUri, payload).join();
-		System.out.println("response: "+response.getMessage());
-	}
-	
+		
 	private void updateLocalModel(String modelUri, EObject model) throws IOException {
 		String response = this.getModelFromModelInventory(modelUri);
 		String converted = this.convertEClassTypeToLocal(response);

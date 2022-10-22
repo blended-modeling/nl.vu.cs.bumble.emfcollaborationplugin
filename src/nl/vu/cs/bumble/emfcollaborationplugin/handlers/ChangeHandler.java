@@ -1,10 +1,9 @@
 package nl.vu.cs.bumble.emfcollaborationplugin.handlers;
 
-import java.util.Optional;
-
 import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.change.util.ChangeRecorder;
+import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
 import org.eclipse.emfcloud.modelserver.common.codecs.EncodingException;
@@ -17,34 +16,30 @@ public class ChangeHandler {
 	private ModelServerClient client;
 	private String modelUri;
 	
-	public ChangeHandler(EObject root, ModelServerClient client, String modelUri) {
+	public ChangeHandler(Resource root, ModelServerClient client, String modelUri) {
 		this.client = client;
 		this.modelUri = modelUri;
-		
 		
 		new ChangeRecorder(root) {
 			public void notifyChanged(Notification notification) {
 				super.notifyChanged(notification);
-				handleModelChanges(notification);
+				String notificationClassName = notification.getClass().getSimpleName();
+
+				if (notificationClassName.contains("ENotification") ) {
+					handleModelChanges(notification);
+				}
 			}
 		};
-		
 	}
-	
 	
 	private void handleModelChanges(Notification notification) {
 		System.out.println(notification);
 		
-		
-//		testNotification(notification);
-		
 		Patch patch = new Patch();
 		patch.setOp(this.getPatchOp(notification));
-		
-//		patch.setPath("StateMachine.xmi#//@input.0/name");
-		
 		patch.setPath(this.getPatchPath(notification));
-		patch.setValue(this.getPatchValue(notification));
+		
+		patch.setValue(this.getPatchValue(notification, patch.getOp()));
 		
 		Payload payload = new Payload();
 		payload.setData(patch);
@@ -52,23 +47,7 @@ public class ChangeHandler {
 		String payloadJson = converter.toJson(payload).get();
 		System.out.println("payload: " + payloadJson);
 		client.update(modelUri, payloadJson);
-		
 	}
-	
-//	private void testNotification(Notification note) {
-//		Object newValue = note.getNewValue();
-//	    Optional<String> json = converter.toJson(newValue);
-//		System.out.println("new value: " +  json);
-//		
-//		Object oldValue = note.getOldValue();
-//	    Optional<String> old = converter.toJson(oldValue);
-//		System.out.println("old value: " +  old);
-//		
-//		Object not = note.getNotifier();
-//	    Optional<String> noteString = converter.toJson(not);
-//		System.out.println("notifier: " +  noteString);
-//		
-//	}
 	
 	private String getPatchOp(Notification notification) {
 		String op = "";
@@ -96,6 +75,8 @@ public class ChangeHandler {
 		EObject notifier = (EObject) notification.getNotifier();
 		String uri = EcoreUtil.getURI(notifier).toString();
 		
+		System.out.println("URI:" + uri);
+		
 		path = uri.split("#//")[1]; 
 		path = path.replace("@", "");
 		path = path.replace(".", "/");
@@ -116,8 +97,17 @@ public class ChangeHandler {
 		return path;
 	}
 	
-	private String getPatchValue(Notification notification) {
-		String value = notification.getNewStringValue();
+	private String getPatchValue(Notification notification, String operationType) {
+		String value = "";
+		
+		if (operationType == "add") {
+			Object notifier = notification.getNewValue(); 
+			String json = converter.toJson(notifier).get();
+			System.out.println("add value: " + json);
+			
+		} else {
+			value = notification.getNewStringValue();
+		}
 		
 		return value;
 	}
@@ -158,15 +148,14 @@ public class ChangeHandler {
 	}
 	
 	class Payload {
-		private String type;
 		private Patch data;
+		private static final String PATCH_TYPE = "modelserver.patch";
 		
 		public Payload() {
-			this.type = "modelserver.patch";
 		}
 		
 		public String getType() {
-			return this.type;
+			return Payload.PATCH_TYPE;
 		}
 		
 		public Patch getData() {
