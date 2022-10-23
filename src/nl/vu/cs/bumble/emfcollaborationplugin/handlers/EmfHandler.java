@@ -72,7 +72,7 @@ public class EmfHandler extends AbstractHandler {
 	private ModelServerClient client = Activator.getModelServerClient();
 	private ConvertHandler converter = ConvertHandler.getConverter();
 	
-	private static final String SERVER_ECORE_PATH = "file:/Users/yunabell/Desktop/ivano_project/BUNDLE/emfcloud-modelserver-master/examples/org.eclipse.emfcloud.modelserver.example/.temp/workspace/statemachine.ecore";
+	private String SERVER_ECORE_PATH = "";
 	private String LOCAL_ECORE_PATH = "";
 		
 	@SuppressWarnings("all")
@@ -98,10 +98,20 @@ public class EmfHandler extends AbstractHandler {
 			System.out.println(rootElement);
 			
 			try {
-				this.setEcorePath(rootElement);
+				this.setLocalEcorePath(rootElement);
 			} catch (EncodingException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
+			}
+			
+			try {
+				this.setServerEcorePath();
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			} catch (EncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 			
 			String modelUri = this.getNameOfModel(rootElement)+".xmi";
@@ -168,13 +178,23 @@ public class EmfHandler extends AbstractHandler {
 		return result;
 	}
 	
-
-	
-	private void setEcorePath(EObject model) throws EncodingException {
+	private void setLocalEcorePath(EObject model) throws EncodingException {
 		JsonNode jsonRoot = converter.objectToJsonNode(model);
         String path = jsonRoot.get("eClass").asText().split("#//")[0];
         
         this.LOCAL_ECORE_PATH = path;
+	}
+	
+	private void setServerEcorePath() throws IOException, EncodingException {
+		String path = "";
+		String response = this.getModelFromModelInventory("EcoreURI.xmi");
+		
+		EObject obj = client.decode(response, FORMAT_JSON_V2).get();
+		JsonNode json = converter.objectToJsonNode(obj);
+		String raw = json.get("eClass").toString().split("#//")[0];
+		path = raw.substring(1);
+		
+		this.SERVER_ECORE_PATH = path;
 	}
 	
 	private String convertEClassTypeToWorkspace(EObject model) throws EncodingException {

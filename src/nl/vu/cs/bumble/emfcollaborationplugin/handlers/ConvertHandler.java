@@ -21,9 +21,10 @@ public class ConvertHandler {
 		return root;
 	}
 	
-	public void jsonToEObject(String json) {
+	public EObject jsonToEObject(String json) {
 		EMFJsonConverter converter = new EMFJsonConverter();
 		Optional<EObject> object = converter.fromJson(json);
+		return object.get();
 	}
 	
 	public Optional<String> toJson(EObject obj) {
