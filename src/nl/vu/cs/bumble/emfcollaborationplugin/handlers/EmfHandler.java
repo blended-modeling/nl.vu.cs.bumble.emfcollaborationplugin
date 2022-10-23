@@ -4,6 +4,8 @@ package nl.vu.cs.bumble.emfcollaborationplugin.handlers;
 
 import static org.eclipse.emfcloud.modelserver.common.ModelServerPathParametersV2.FORMAT_JSON;
 import static org.eclipse.emfcloud.modelserver.common.ModelServerPathParametersV2.FORMAT_JSON_V2;
+import static org.eclipse.emfcloud.modelserver.common.ModelServerPathParametersV2.FORMAT_XMI;
+import static org.eclipse.emfcloud.modelserver.common.ModelServerPathParametersV2.PATHS_URI_FRAGMENTS;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,11 +36,18 @@ import org.eclipse.emf.ecore.xmi.impl.EcoreResourceFactoryImpl;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
 import org.eclipse.emfcloud.modelserver.client.Response;
+import org.eclipse.emfcloud.modelserver.client.SubscriptionListener;
+import org.eclipse.emfcloud.modelserver.client.SubscriptionOptions;
 import org.eclipse.emfcloud.modelserver.client.v2.ModelServerClientV2;
 import org.eclipse.emfcloud.modelserver.common.APIVersion;
 import org.eclipse.emfcloud.modelserver.common.codecs.DefaultJsonCodec;
 import org.eclipse.emfcloud.modelserver.common.codecs.EMFJsonConverter;
 import org.eclipse.emfcloud.modelserver.common.codecs.EncodingException;
+import org.eclipse.emfcloud.modelserver.example.client.ExampleEObjectSubscriptionListener;
+import org.eclipse.emfcloud.modelserver.example.client.ExampleJsonStringSubscriptionListener;
+import org.eclipse.emfcloud.modelserver.example.client.ExampleXMISubscriptionListener;
+import org.eclipse.emfcloud.modelserver.example.util.PrintUtil;
+import org.eclipse.emfcloud.modelserver.jsonpatch.JsonPatch;
 import org.eclipse.emfcloud.modelserver.jsonschema.Json;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -50,23 +59,8 @@ import nl.vu.cs.bumble.emfcollaborationplugin.Activator;
 import nl.vu.cs.bumble.statemachine.impl.StateMachineImpl;
 
 public class EmfHandler extends AbstractHandler {
-
-	private static final String CMD_QUIT = "quit";
-	private static final String CMD_HELP = "help";
-	private static final String CMD_PING = "ping";
-	private static final String CMD_REDO = "redo";
-	private static final String CMD_UNDO = "undo";
 	
-	private static final String CMD_UPDATE_TASKS = "update-tasks";
-	private static final String CMD_GET = "get";
-	private static final String CMD_GET_ALL = "getAll";
-	private static final String CMD_UNSUBSCRIBE = "unsubscribe";
-	private static final String CMD_SUBSCRIBE = "subscribe";
-	private static final String CMD_ECORE = "ecore";
-
-	private static final String STATEMACHINE_ECORE = "statemachine.ecore";
-	private static final String STATEMACHINE_XMI = "TrafficSignals.xmi";
-	
+	private static final APIVersion API_VERSION = APIVersion.API_V2;
 	private static final Integer STATUS_OK = 200;
 	
 	private ModelServerClient client = Activator.getModelServerClient();
@@ -138,6 +132,15 @@ public class EmfHandler extends AbstractHandler {
 			
 			EObject newRootElement = this.getRootModel(editor);
 			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri);
+			
+			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
+				   public void onIncrementalUpdate(final JsonPatch patch) {
+					      printResponse(
+					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
+					   }
+			};
+			           
+			client.subscribe(modelUri, listener);
 						
 		}
 			return null;
