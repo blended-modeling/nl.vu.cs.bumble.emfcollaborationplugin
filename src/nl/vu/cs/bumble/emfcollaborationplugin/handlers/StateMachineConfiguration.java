@@ -20,7 +20,6 @@ public class StateMachineConfiguration implements EPackageConfiguration {
 	@Override
 	public void registerEPackage() {
 		StatemachinePackage.eINSTANCE.eClass();
-		
 	}
 
 }

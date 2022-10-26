@@ -133,12 +133,25 @@ public class EmfHandler extends AbstractHandler {
 			EObject newRootElement = this.getRootModel(editor);
 			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri);
 			
-			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
-				   public void onIncrementalUpdate(final JsonPatch patch) {
-					      printResponse(
-					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
-					   }
+			SubscriptionListener listener = new ExampleXMISubscriptionListener(modelUri) {
+				public void onIncrementalUpdate(final EObject incrementalUpdate) {
+				      printResponse("Incremental <XmiEObject> update from model server received: " + incrementalUpdate.toString());
+
+				      try {
+						System.out.println("xmi patch: " + converter.objectToJsonNode(incrementalUpdate).toPrettyString());
+					} catch (EncodingException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				   }
 			};
+			
+//			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
+//				   public void onIncrementalUpdate(final JsonPatch patch) {
+//					      printResponse(
+//					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
+//					   }
+//			};
 			           
 			client.subscribe(modelUri, listener);
 						
