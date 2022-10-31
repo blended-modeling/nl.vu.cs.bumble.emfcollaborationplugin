@@ -48,6 +48,7 @@ import org.eclipse.emfcloud.modelserver.example.client.ExampleJsonStringSubscrip
 import org.eclipse.emfcloud.modelserver.example.client.ExampleXMISubscriptionListener;
 import org.eclipse.emfcloud.modelserver.example.util.PrintUtil;
 import org.eclipse.emfcloud.modelserver.jsonpatch.JsonPatch;
+import org.eclipse.emfcloud.modelserver.jsonpatch.Operation;
 import org.eclipse.emfcloud.modelserver.jsonschema.Json;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -89,6 +90,7 @@ public class EmfHandler extends AbstractHandler {
 //				e1.printStackTrace();
 //			}
 					
+
 			System.out.println(rootElement);
 			
 			try {
@@ -108,7 +110,8 @@ public class EmfHandler extends AbstractHandler {
 				e.printStackTrace();
 			}
 			
-			String modelUri = this.getNameOfModel(rootElement)+".xmi";
+			String modelUri = this.getNameOfModel(rootElement);
+			System.out.println("model URI: " + modelUri);
 			
 			
 			if(this.isModelExistOnServer(modelUri)) {
@@ -133,25 +136,26 @@ public class EmfHandler extends AbstractHandler {
 			EObject newRootElement = this.getRootModel(editor);
 			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri);
 			
-			SubscriptionListener listener = new ExampleXMISubscriptionListener(modelUri) {
-				public void onIncrementalUpdate(final EObject incrementalUpdate) {
-				      printResponse("Incremental <XmiEObject> update from model server received: " + incrementalUpdate.toString());
-
-				      try {
-						System.out.println("xmi patch: " + converter.objectToJsonNode(incrementalUpdate).toPrettyString());
-					} catch (EncodingException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				   }
-			};
-			
-//			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
-//				   public void onIncrementalUpdate(final JsonPatch patch) {
-//					      printResponse(
-//					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
-//					   }
+//			SubscriptionListener listener = new ExampleXMISubscriptionListener(modelUri) {
+//				public void onIncrementalUpdate(final EObject incrementalUpdate) {
+//				      printResponse("Incremental <XmiEObject> update from model server received: " + incrementalUpdate.toString());
+//
+//				      try {
+//						System.out.println("xmi patch: " + converter.objectToJsonNode(incrementalUpdate).toPrettyString());
+//					} catch (EncodingException e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					}
+//				   }
 //			};
+			
+			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
+				   public void onIncrementalUpdate(final JsonPatch patch) {
+					   Operation o = patch.getPatch().get(0);
+					      printResponse(
+					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
+					   }
+			};
 			           
 			client.subscribe(modelUri, listener);
 						
@@ -231,7 +235,7 @@ public class EmfHandler extends AbstractHandler {
 	}
 	
 	private String getNameOfModel(EObject model) {
-		String name = model.eClass().getName();
+		String name = model.eResource().getURI().lastSegment();
 		return name;
 	}
 	
