@@ -10,6 +10,7 @@ import static org.eclipse.emfcloud.modelserver.common.ModelServerPathParametersV
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Scanner;
@@ -134,7 +135,6 @@ public class EmfHandler extends AbstractHandler {
 //				      try {
 //						System.out.println("xmi patch: " + converter.objectToJsonNode(incrementalUpdate).toPrettyString());
 //					} catch (EncodingException e) {
-//						// TODO Auto-generated catch block
 //						e.printStackTrace();
 //					}
 //				   }
@@ -156,22 +156,6 @@ public class EmfHandler extends AbstractHandler {
 	
 	private void executeJsonPatch(JsonPatch patches, IEditorPart editor) {
 		EObject model = getRootModel(editor);
-//		// JsonPatch is a list of Operation
-//		Operation o = patch.getPatch().get(0);
-//		ResourceSet resourceSet = resource.getResourceSet();
-//		System.out.println("resource set: " + resourceSet);
-//		String path = o.getPath();
-//		
-//		String[] paths = path.split("/");
-//		StringBuilder builder = new StringBuilder();
-//		for (int i = 0; i < paths.length - 1; i++) {
-//		    builder.append("/"+paths[i]);
-//		}
-//		String joined = builder.toString();
-//
-//		path = "/TrafficStateMachine/My.statemachine#//@output.0";
-//		
-//		System.out.println("get path: " + path);
 		
 		for(int i = 0; i < patches.getPatch().size(); i++) {
 			Operation patch = patches.getPatch().get(i);
@@ -179,7 +163,6 @@ public class EmfHandler extends AbstractHandler {
 			
 			if(op == "replace") {
 				this.applyReplacePatch(model, patch);
-	
 			}
 		}
 		
@@ -197,12 +180,8 @@ public class EmfHandler extends AbstractHandler {
 		System.out.println("path :  " + path);
 		
 		String[] paths = path.split("/");
-		
-		for (int i = 0; i < paths.length; i++) {
-		    System.out.println(paths[i]);
-		}
-		
-		String rootNodeName = paths[1];
+				
+		String rootClassName = paths[1];
 		int rootPosition = Integer.parseInt(paths[2]);
 		String featureName = paths[paths.length - 1];
 		String newValue = "";
@@ -210,12 +189,15 @@ public class EmfHandler extends AbstractHandler {
 		try {
 			JsonNode patchJson = converter.objectToJsonNode(patch);
 			JsonNode valueNode = patchJson.get("value");
+			
 			String valueType = valueNode.get("eClass").asText();
 			newValue = valueNode.get("value").asText();
-			System.out.println("patch string: " + newValue);
+			
+			System.out.println("new value type: " + valueType);
+			System.out.println("new value: " + newValue);
 			
 		} catch (EncodingException e) {
-			newValue = "error";
+			e.printStackTrace();
 		}
 		
 		EObject objToPatch = model.eContents().get(0);
@@ -228,7 +210,7 @@ public class EmfHandler extends AbstractHandler {
 			EObject rootNode = model.eContents().get(i);
 			String objClassName = rootNode.eClass().getName().toLowerCase();
 			
-			if( objClassName.equals(rootNodeName)) {				
+			if( objClassName.equals(rootClassName)) {				
 				if(counter == rootPosition) {
 					objToPatch = rootNode;
 					break;
@@ -238,46 +220,26 @@ public class EmfHandler extends AbstractHandler {
 			}
 		}
 		
+		// /input/0/baseconcept/1/baseconcept/0/name -> /baseconcept/1/baseconcept/0
+		paths = Arrays.copyOfRange(paths, 3, paths.length-1);
+		
+		
+		while(paths.length > 0) {
+			int subNodePosition = Integer.parseInt(paths[1]);
+			
+			// /baseconcept/1/baseconcept/0  -> /baseconcept/0
+			paths = Arrays.copyOfRange(paths, 2, paths.length);
+			objToPatch = objToPatch.eContents().get(subNodePosition);
+		}
+
+		
 //		System.out.println("test : "+objToPatch);
 //		System.out.println("test 2: "+objToPatch.eContainingFeature());
 		
 		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
 //		System.out.println("test 3: "+ objToPatch);
 	}
-	
-//	private void executeJsonPatch(JsonPatch patch, Resource resource) {
-//		// JsonPatch is a list of Operation
-//		Operation o = patch.getPatch().get(0);
-//		ResourceSet resourceSet = resource.getResourceSet();
-//		System.out.println("resource set: " + resourceSet);
-//		String path = o.getPath();
-//		
-//		String[] paths = path.split("/");
-//		StringBuilder builder = new StringBuilder();
-//		for (int i = 0; i < paths.length - 1; i++) {
-//		    builder.append("/"+paths[i]);
-//		}
-//		String joined = builder.toString();
-//
-//		path = "/TrafficStateMachine/My.statemachine#//@output.0";
-//		
-//		System.out.println("get path: " + path);
-//		
-//		EStructuralFeature feature = o.eContainingFeature();
-////		System.out.println("get containing feature: " + feature);
-////		get containing feature: org.eclipse.emf.ecore.impl.EReferenceImpl@79169472 (name: patch)
-//		
-////		URI uri = URI.createPlatformResourceURI("platform:/resource/TrafficStateMachine/My.statemachine");
-//		URI uri = URI.createPlatformResourceURI(path, true);
-//		
-//		System.out.println("URI: " + uri);
-////		EObject obj = resourceSet.getEObject(uri, true);
-////		
-////		System.out.println("get obj:" + obj);
-//		
-//		EObject root = resource.getContents().get(0);
-//	}
-		
+			
 	private void addModelToModelInventory(String modelUri, EObject model) throws EncodingException {
 		String payload = this.convertEClassTypeToWorkspace(model);
 		Response<String> response = client.create(modelUri, payload).join();
