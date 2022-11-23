@@ -142,8 +142,8 @@ public class EmfHandler extends AbstractHandler {
 			
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
-					      printResponse(
-					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
+//					      printResponse(
+//					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
 					      executeJsonPatch(patch, editor);
 					   }
 			};
@@ -154,15 +154,34 @@ public class EmfHandler extends AbstractHandler {
 		
 	};
 	
-	private void executeJsonPatch(JsonPatch patch, IEditorPart editor) {
+	private void executeJsonPatch(JsonPatch patches, IEditorPart editor) {
 		EObject model = getRootModel(editor);
-		EObject test = model.eContents().get(0);
-		System.out.println("test : "+test);
-		System.out.println("test 2: "+test.eContainingFeature());
+//		// JsonPatch is a list of Operation
+//		Operation o = patch.getPatch().get(0);
+//		ResourceSet resourceSet = resource.getResourceSet();
+//		System.out.println("resource set: " + resourceSet);
+//		String path = o.getPath();
+//		
+//		String[] paths = path.split("/");
+//		StringBuilder builder = new StringBuilder();
+//		for (int i = 0; i < paths.length - 1; i++) {
+//		    builder.append("/"+paths[i]);
+//		}
+//		String joined = builder.toString();
+//
+//		path = "/TrafficStateMachine/My.statemachine#//@output.0";
+//		
+//		System.out.println("get path: " + path);
 		
-		test.eSet(test.eClass().getEStructuralFeature("name"), "changggg");
-		System.out.println("test 3: "+ test);
-		
+		for(int i = 0; i < patches.getPatch().size(); i++) {
+			Operation patch = patches.getPatch().get(i);
+			String op = patch.getOp().toString();
+			
+			if(op == "replace") {
+				this.applyReplacePatch(model, patch);
+	
+			}
+		}
 		
 		try {
 			model.eResource().getContents().add(model);
@@ -171,7 +190,60 @@ public class EmfHandler extends AbstractHandler {
 			e1.printStackTrace();
 		}
 		
-	}	
+	}
+	
+	private void applyReplacePatch(EObject model, Operation patch) {
+		String path = patch.getPath();
+		System.out.println("path :  " + path);
+		
+		String[] paths = path.split("/");
+		
+		for (int i = 0; i < paths.length; i++) {
+		    System.out.println(paths[i]);
+		}
+		
+		String rootNodeName = paths[1];
+		int rootPosition = Integer.parseInt(paths[2]);
+		String featureName = paths[paths.length - 1];
+		String newValue = "";
+		
+		try {
+			JsonNode patchJson = converter.objectToJsonNode(patch);
+			JsonNode valueNode = patchJson.get("value");
+			String valueType = valueNode.get("eClass").asText();
+			newValue = valueNode.get("value").asText();
+			System.out.println("patch string: " + newValue);
+			
+		} catch (EncodingException e) {
+			newValue = "error";
+		}
+		
+		EObject objToPatch = model.eContents().get(0);
+		
+		EList<EObject> contents = model.eContents();
+		
+		int counter = 0;
+				
+		for(int i = 0; i < contents.size(); i++) {
+			EObject rootNode = model.eContents().get(i);
+			String objClassName = rootNode.eClass().getName().toLowerCase();
+			
+			if( objClassName.equals(rootNodeName)) {				
+				if(counter == rootPosition) {
+					objToPatch = rootNode;
+					break;
+				} else {
+					counter++;
+				}
+			}
+		}
+		
+//		System.out.println("test : "+objToPatch);
+//		System.out.println("test 2: "+objToPatch.eContainingFeature());
+		
+		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
+//		System.out.println("test 3: "+ objToPatch);
+	}
 	
 //	private void executeJsonPatch(JsonPatch patch, Resource resource) {
 //		// JsonPatch is a list of Operation

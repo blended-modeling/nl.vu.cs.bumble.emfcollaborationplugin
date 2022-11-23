@@ -38,7 +38,7 @@ public class ChangeHandler {
 	}
 	
 	private void handleModelChanges(Notification notification) {
-		System.out.println(notification);
+//		System.out.println(notification);
 		
 		Patch patch = new Patch();
 		
@@ -50,7 +50,7 @@ public class ChangeHandler {
 		payload.setData(patch);
 		
 		String payloadJson = converter.toJson(payload).get();
-		System.out.println("payload: " + payloadJson);
+//		System.out.println("payload: " + payloadJson);
 		client.update(modelUri, payloadJson);
 	}
 	
@@ -80,7 +80,7 @@ public class ChangeHandler {
 		EObject notifier = (EObject) notification.getNotifier();
 		String uri = EcoreUtil.getURI(notifier).toString();
 		
-		System.out.println("URI:" + uri);
+//		System.out.println("URI:" + uri);
 		
 		if(uri.split("#/").length > 1) {
 			path = uri.split("#/")[1].replace("@", "").replace(".", "/");
