@@ -89,29 +89,23 @@ public class EmfHandler extends AbstractHandler {
 //				// TODO Auto-generated catch block
 //				e1.printStackTrace();
 //			}
-					
-
-			System.out.println(rootElement);
 			
 			try {
 				this.setLocalEcorePath(rootElement);
 			} catch (EncodingException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 			
 			try {
 				this.setServerEcorePath();
 			} catch (IOException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			} catch (EncodingException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
 			String modelUri = this.getNameOfModel(rootElement);
-			System.out.println("model URI: " + modelUri);
+			System.out.println("model name: " + modelUri);
 			
 			
 			if(this.isModelExistOnServer(modelUri)) {
@@ -119,7 +113,6 @@ public class EmfHandler extends AbstractHandler {
 					this.updateLocalModel(modelUri, rootElement);
 
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				
@@ -128,14 +121,12 @@ public class EmfHandler extends AbstractHandler {
 					this.addModelToModelInventory(modelUri, rootElement);
 					
 				} catch (EncodingException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}	
 			
-			EObject newRootElement = this.getRootModel(editor);
 			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri);
-			
+		
 //			SubscriptionListener listener = new ExampleXMISubscriptionListener(modelUri) {
 //				public void onIncrementalUpdate(final EObject incrementalUpdate) {
 //				      printResponse("Incremental <XmiEObject> update from model server received: " + incrementalUpdate.toString());
@@ -151,23 +142,73 @@ public class EmfHandler extends AbstractHandler {
 			
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
-					   Operation o = patch.getPatch().get(0);
 					      printResponse(
 					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
+					      executeJsonPatch(patch, editor);
 					   }
 			};
 			           
-			client.subscribe(modelUri, listener);
-						
+			client.subscribe(modelUri, listener);						
 		}
 			return null;
 		
 	};
+	
+	private void executeJsonPatch(JsonPatch patch, IEditorPart editor) {
+		EObject model = getRootModel(editor);
+		EObject test = model.eContents().get(0);
+		System.out.println("test : "+test);
+		System.out.println("test 2: "+test.eContainingFeature());
+		
+		test.eSet(test.eClass().getEStructuralFeature("name"), "changggg");
+		System.out.println("test 3: "+ test);
+		
+		
+		try {
+			model.eResource().getContents().add(model);
+			model.eResource().save(Collections.EMPTY_MAP);
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		
+	}	
+	
+//	private void executeJsonPatch(JsonPatch patch, Resource resource) {
+//		// JsonPatch is a list of Operation
+//		Operation o = patch.getPatch().get(0);
+//		ResourceSet resourceSet = resource.getResourceSet();
+//		System.out.println("resource set: " + resourceSet);
+//		String path = o.getPath();
+//		
+//		String[] paths = path.split("/");
+//		StringBuilder builder = new StringBuilder();
+//		for (int i = 0; i < paths.length - 1; i++) {
+//		    builder.append("/"+paths[i]);
+//		}
+//		String joined = builder.toString();
+//
+//		path = "/TrafficStateMachine/My.statemachine#//@output.0";
+//		
+//		System.out.println("get path: " + path);
+//		
+//		EStructuralFeature feature = o.eContainingFeature();
+////		System.out.println("get containing feature: " + feature);
+////		get containing feature: org.eclipse.emf.ecore.impl.EReferenceImpl@79169472 (name: patch)
+//		
+////		URI uri = URI.createPlatformResourceURI("platform:/resource/TrafficStateMachine/My.statemachine");
+//		URI uri = URI.createPlatformResourceURI(path, true);
+//		
+//		System.out.println("URI: " + uri);
+////		EObject obj = resourceSet.getEObject(uri, true);
+////		
+////		System.out.println("get obj:" + obj);
+//		
+//		EObject root = resource.getContents().get(0);
+//	}
 		
 	private void addModelToModelInventory(String modelUri, EObject model) throws EncodingException {
 		String payload = this.convertEClassTypeToWorkspace(model);
 		Response<String> response = client.create(modelUri, payload).join();
-		System.out.println("response: "+response.getMessage());
 	}
 	
 	private Boolean isModelExistOnServer(String modelUri) {		
@@ -186,7 +227,6 @@ public class EmfHandler extends AbstractHandler {
 		 updatedModel.eResource().save(Collections.EMPTY_MAP);
 		 
 		} catch (IOException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
 	}
@@ -220,8 +260,8 @@ public class EmfHandler extends AbstractHandler {
 	private String convertEClassTypeToWorkspace(EObject model) throws EncodingException {
 		String json = client.encode(model, FORMAT_JSON_V2);
 		
-		System.out.println("local: " + LOCAL_ECORE_PATH);
-		System.out.println("server: " + SERVER_ECORE_PATH);
+//		System.out.println("local: " + LOCAL_ECORE_PATH);
+//		System.out.println("server: " + SERVER_ECORE_PATH);
 		
 		String converted = json.replace(LOCAL_ECORE_PATH, SERVER_ECORE_PATH);
 		
