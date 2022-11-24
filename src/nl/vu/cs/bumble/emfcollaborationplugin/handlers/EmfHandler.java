@@ -33,6 +33,7 @@ import org.eclipse.emf.ecore.change.util.ChangeRecorder;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
+import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.impl.EcoreResourceFactoryImpl;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
@@ -142,8 +143,8 @@ public class EmfHandler extends AbstractHandler {
 			
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
-//					      printResponse(
-//					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
+					      printResponse(
+					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
 					      executeJsonPatch(patch, editor);
 					   }
 			};
@@ -164,6 +165,9 @@ public class EmfHandler extends AbstractHandler {
 			if(op == "replace") {
 				this.applyReplacePatch(model, patch);
 			}
+			if(op == "remove") {
+				this.applyRemovePatch(model, patch);
+			}
 		}
 		
 		try {
@@ -175,10 +179,49 @@ public class EmfHandler extends AbstractHandler {
 		
 	}
 	
-	private void applyReplacePatch(EObject model, Operation patch) {
-		String path = patch.getPath();
-		System.out.println("path :  " + path);
+	private void applyRemovePatch(EObject model, Operation patch) {
+		String path = patch.getPath();		
+		String[] paths = path.split("/");
 		
+		String rootClassName = paths[1];
+		int rootPosition = Integer.parseInt(paths[2]);
+		
+		EObject objToPatch = model.eContents().get(0);
+		
+		EList<EObject> contents = model.eContents();
+		
+		int counter = 0;
+				
+		for(int i = 0; i < contents.size(); i++) {
+			EObject rootNode = model.eContents().get(i);
+			String objClassName = rootNode.eClass().getName().toLowerCase();
+			
+			if( objClassName.equals(rootClassName)) {				
+				if(counter == rootPosition) {
+					objToPatch = rootNode;
+					break;
+				} else {
+					counter++;
+				}
+			}
+		}
+		
+		paths = Arrays.copyOfRange(paths, 3, paths.length);
+		
+		
+		while(paths.length > 0) {
+			int subNodePosition = Integer.parseInt(paths[1]);
+			
+			paths = Arrays.copyOfRange(paths, 2, paths.length);
+			objToPatch = objToPatch.eContents().get(subNodePosition);
+		}
+		
+		EcoreUtil.delete(objToPatch);
+		
+	}
+	
+	private void applyReplacePatch(EObject model, Operation patch) {
+		String path = patch.getPath();		
 		String[] paths = path.split("/");
 				
 		String rootClassName = paths[1];

@@ -50,7 +50,7 @@ public class ChangeHandler {
 		payload.setData(patch);
 		
 		String payloadJson = converter.toJson(payload).get();
-//		System.out.println("payload: " + payloadJson);
+		System.out.println("payload: " + payloadJson);
 		client.update(modelUri, payloadJson);
 	}
 	
