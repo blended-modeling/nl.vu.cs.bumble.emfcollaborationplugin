@@ -194,7 +194,7 @@ public class EmfHandler extends AbstractHandler {
 				
 		for(int i = 0; i < contents.size(); i++) {
 			EObject rootNode = model.eContents().get(i);
-			String objClassName = rootNode.eClass().getName().toLowerCase();
+			String objClassName = rootNode.eContainmentFeature().getName();
 			
 			if( objClassName.equals(rootClassName)) {				
 				if(counter == rootPosition) {
@@ -251,7 +251,7 @@ public class EmfHandler extends AbstractHandler {
 				
 		for(int i = 0; i < contents.size(); i++) {
 			EObject rootNode = model.eContents().get(i);
-			String objClassName = rootNode.eClass().getName().toLowerCase();
+			String objClassName = rootNode.eContainmentFeature().getName();
 			
 			if( objClassName.equals(rootClassName)) {				
 				if(counter == rootPosition) {
@@ -353,6 +353,7 @@ public class EmfHandler extends AbstractHandler {
 	
 	private String getNameOfModel(EObject model) {
 		String name = model.eResource().getURI().lastSegment();
+//		String name = "StateMachine.xmi";
 		return name;
 	}
 	

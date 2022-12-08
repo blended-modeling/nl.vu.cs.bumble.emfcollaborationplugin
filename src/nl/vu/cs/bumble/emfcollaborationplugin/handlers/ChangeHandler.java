@@ -38,7 +38,7 @@ public class ChangeHandler {
 	}
 	
 	private void handleModelChanges(Notification notification) {
-//		System.out.println(notification);
+		System.out.println("notification : " +notification);
 		
 		Patch patch = new Patch();
 		
