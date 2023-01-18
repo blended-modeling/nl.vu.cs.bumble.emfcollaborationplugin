@@ -40,15 +40,35 @@ public class ChangeHandler {
 	private void handleModelChanges(Notification notification) {
 		System.out.println("notification : " +notification);
 		
-		Patch patch = new Patch();
-		
-		patch.setOp(this.getPatchOp(notification));
-		patch.setPath(this.getPatchPath(notification, patch.getOp()));
-		patch.setValue(this.getPatchValue(notification, patch.getOp()));
+		String operation = this.getPatchOp(notification);
+		String path = this.getPatchPath(notification, operation);
 		
 		Payload payload = new Payload();
-		payload.setData(patch);
 		
+		if (operation == OP_REMOVE || operation == OP_SET) {
+			
+			Patch patch = new Patch();
+			
+			patch.setOp(operation);
+			patch.setPath(path);
+			patch.setValue(notification.getNewStringValue());
+			
+			payload.setData(patch);
+		} 
+		
+		if (operation == OP_ADD) {
+			
+			AddPatch patch = new AddPatch();
+			patch.setOp(operation);
+			patch.setPath(path);
+			patch.setValue(this.getPatchValue(notification));
+			
+			
+			payload.setData(patch);
+		}
+		
+		
+						
 		String payloadJson = converter.toJson(payload).get();
 		System.out.println("payload: " + payloadJson);
 		client.update(modelUri, payloadJson);
@@ -96,9 +116,12 @@ public class ChangeHandler {
 			e.printStackTrace();
 		}
 		
+		System.out.println("path without feature: " + path);
 		path = path + "/" + feature;
 		
-		if(op == OP_REMOVE | op == OP_ADD) {
+		System.out.println("path with feature: " + path);
+		
+		if(op == OP_REMOVE) {
 			String position = Integer.toString(notification.getPosition());
 			path = path + "/" + position;
 		}
@@ -106,54 +129,37 @@ public class ChangeHandler {
 		return path;
 	}
 	
-	private String getPatchValue(Notification notification, String op) {
-		String value = "";
+	private Value getPatchValue(Notification notification) {
+		Value value = new Value();
 		
-		if (op == OP_ADD) {
-			Object notifier = notification.getNewValue(); 
-			String json = converter.toJson(notifier).get();
-			System.out.println("add value: " + json);
+
+		Object notifier = notification.getNewValue(); 
+		String json = converter.toJson(notifier).get();
+		System.out.println("add value: " + json);
+		value.setType("testttttttt");
 			
-		} else {
-			value = notification.getNewStringValue();
-		}
-		
 		return value;
 	}
-			
-	class Patch {
-		private String op;
-		private String path;
-		private String value;
+
+	class Value {
+		private String $type;
 		
-		public Patch() {
-			
+		public Value() {
 		};
 		
-		public String getOp() {
-			return this.op;
+		public String get$type() {
+			return this.$type;
 		}
 		
-		public String getPath() {
-			return this.path;
+		public void setType(String value) {
+			this.$type = value;
 		}
+	}
 		
-		public String getValue() {
-			return this.value;
-		}
-		
-		public void setOp(String op) {
-			this.op = op;
-		}
-		
-		public void setPath(String path) {
-			this.path = path;
-		}
-		
-		public void setValue(String value) {
-			this.value = value;
-		}
-		
+	class StandardPatch extends Patch<String> {
+	}
+	
+	class AddPatch extends Patch<Value> {
 	}
 	
 	class Payload {
@@ -174,7 +180,5 @@ public class ChangeHandler {
 		public void setData(Patch patch) {
 			this.data = patch;
 		}
-		
 	}
-
 }

@@ -337,10 +337,11 @@ public class EmfHandler extends AbstractHandler {
 	private String convertEClassTypeToWorkspace(EObject model) throws EncodingException {
 		String json = client.encode(model, FORMAT_JSON_V2);
 		
-//		System.out.println("local: " + LOCAL_ECORE_PATH);
-//		System.out.println("server: " + SERVER_ECORE_PATH);
+		System.out.println("local: " + LOCAL_ECORE_PATH);
+		System.out.println("server: " + SERVER_ECORE_PATH);
 		
 		String converted = json.replace(LOCAL_ECORE_PATH, SERVER_ECORE_PATH);
+//		String converted = json; 
 		
 		return converted;
 	}
@@ -348,12 +349,16 @@ public class EmfHandler extends AbstractHandler {
 	private String convertEClassTypeToLocal(String model) {
 		String converted = model.replace(SERVER_ECORE_PATH, LOCAL_ECORE_PATH);
 		
+		System.out.println("local: " + LOCAL_ECORE_PATH);
+		System.out.println("server: " + SERVER_ECORE_PATH);
+		
 		return converted;
+//		return model;
 	}
 	
 	private String getNameOfModel(EObject model) {
 		String name = model.eResource().getURI().lastSegment();
-//		String name = "StateMachine.xmi";
+//		String name = "TrafficSignals.statemachine";
 		return name;
 	}
 	

@@ -162,7 +162,9 @@ public class ServerNotifications {
 	               } else {
 	                  result = (EPackage) res.getContents().get(0);
 	                  if (!EPackage.Registry.INSTANCE.containsKey(result.getNsURI())) {
+	                	  
 	                     EPackage.Registry.INSTANCE.put(result.getNsURI(), result);
+	  
 	                  } else {
 	                     result = EPackage.Registry.INSTANCE.getEPackage(result.getNsURI());
 	                  }
