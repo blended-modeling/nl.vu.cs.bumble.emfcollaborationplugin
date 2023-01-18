@@ -16,14 +16,16 @@ public class ChangeHandler {
 	private ConvertHandler converter = ConvertHandler.getConverter();
 	private ModelServerClient client;
 	private String modelUri;
+	private String LOCAL_ECORE_PATH;
 	private static final String OP_SET = "replace";
 	private static final String OP_REMOVE = "remove";
 	private static final String OP_ADD = "add";
 	private static final String OP_UNKNOWN = "unknown";
 	
-	public ChangeHandler(Resource root, ModelServerClient client, String modelUri) {
+	public ChangeHandler(Resource root, ModelServerClient client, String modelUri, String path) {
 		this.client = client;
 		this.modelUri = modelUri;
+		this.LOCAL_ECORE_PATH = path;
 		
 		new ChangeRecorder(root) {
 			public void notifyChanged(Notification notification) {
@@ -81,7 +83,6 @@ public class ChangeHandler {
 		}
 		
 		return op;
-		
 	}
 	
 	private String getPatchPath(Notification notification, String op) {
@@ -122,11 +123,34 @@ public class ChangeHandler {
 	private Value getPatchValue(Notification notification) {
 		Value value = new Value();
 		
-
-		Object notifier = notification.getNewValue(); 
-		String json = converter.toJson(notifier).get();
-		System.out.println("add value: " + json);
-		value.setType("testttttttt");
+		JsonNode featureJson = null;
+		JsonNode newValueJson = null;
+		String feature = "";
+		String valueType = "";
+		
+		try {
+			newValueJson = converter.objectToJsonNode((EObject)notification.getNewValue());
+			
+		} catch (EncodingException e) {
+			e.printStackTrace();
+		}
+		
+		if(newValueJson.has("eClass")) {
+			valueType = newValueJson.get("eClass").asText();
+		} else {
+			try {
+				featureJson = converter.objectToJsonNode((EObject)notification.getFeature());
+				System.out.println("feature JSON: " + featureJson.toPrettyString());
+				feature = featureJson.get("eType").get("$ref").asText();
+				
+			} catch (EncodingException e) {
+				e.printStackTrace();
+			}
+			
+			valueType = LOCAL_ECORE_PATH + "#" + feature;
+		}
+				
+		value.setType(valueType);
 			
 		return value;
 	}

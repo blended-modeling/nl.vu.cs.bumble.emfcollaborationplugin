@@ -127,7 +127,7 @@ public class EmfHandler extends AbstractHandler {
 				}
 			}	
 			
-			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri);
+			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH);
 		
 //			SubscriptionListener listener = new ExampleXMISubscriptionListener(modelUri) {
 //				public void onIncrementalUpdate(final EObject incrementalUpdate) {
