@@ -43,32 +43,22 @@ public class ChangeHandler {
 		String operation = this.getPatchOp(notification);
 		String path = this.getPatchPath(notification, operation);
 		
-		Payload payload = new Payload();
+		Patch patch = new Patch();
+		
+		patch.setOp(operation);
+		patch.setPath(path);
 		
 		if (operation == OP_REMOVE || operation == OP_SET) {
-			
-			Patch patch = new Patch();
-			
-			patch.setOp(operation);
-			patch.setPath(path);
 			patch.setValue(notification.getNewStringValue());
-			
-			payload.setData(patch);
 		} 
 		
 		if (operation == OP_ADD) {
-			
-			AddPatch patch = new AddPatch();
-			patch.setOp(operation);
-			patch.setPath(path);
 			patch.setValue(this.getPatchValue(notification));
-			
-			
-			payload.setData(patch);
 		}
 		
+		Payload payload = new Payload();
+		payload.setData(patch);
 		
-						
 		String payloadJson = converter.toJson(payload).get();
 		System.out.println("payload: " + payloadJson);
 		client.update(modelUri, payloadJson);
@@ -139,46 +129,5 @@ public class ChangeHandler {
 		value.setType("testttttttt");
 			
 		return value;
-	}
-
-	class Value {
-		private String $type;
-		
-		public Value() {
-		};
-		
-		public String get$type() {
-			return this.$type;
-		}
-		
-		public void setType(String value) {
-			this.$type = value;
-		}
-	}
-		
-	class StandardPatch extends Patch<String> {
-	}
-	
-	class AddPatch extends Patch<Value> {
-	}
-	
-	class Payload {
-		private Patch data;
-		private static final String PATCH_TYPE = "modelserver.patch";
-		
-		public Payload() {
-		}
-		
-		public String getType() {
-			return Payload.PATCH_TYPE;
-		}
-		
-		public Patch getData() {
-			return this.data;
-		}
-		
-		public void setData(Patch patch) {
-			this.data = patch;
-		}
 	}
 }
