@@ -16,6 +16,7 @@ Bundle-RequiredExecutionEnvironment: JavaSE-11
 Automatic-Module-Name: nl.vu.cs.bumble.emfcollaborationplugin
 Bundle-ActivationPolicy: lazy
 Import-Package: com.fasterxml.jackson.databind;version="2.12.1",
+ com.fasterxml.jackson.databind.node;version="2.12.1",
  com.github.fge.jsonpatch;version="1.3.0",
  nl.vu.cs.bumble.statemachine,
  nl.vu.cs.bumble.statemachine.provider,

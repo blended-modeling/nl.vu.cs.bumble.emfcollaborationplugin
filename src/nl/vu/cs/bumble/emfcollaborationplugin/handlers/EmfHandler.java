@@ -10,8 +10,10 @@ import static org.eclipse.emfcloud.modelserver.common.ModelServerPathParametersV
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
@@ -22,12 +24,17 @@ import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.emf.common.notify.Notification;
+import org.eclipse.emf.common.util.ECollections;
 import org.eclipse.emf.common.util.EList;
+import org.eclipse.emf.common.util.TreeIterator;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.common.util.WrappedException;
+import org.eclipse.emf.ecore.EClass;
+import org.eclipse.emf.ecore.EClassifier;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EStructuralFeature;
+import org.eclipse.emf.ecore.EcoreFactory;
 import org.eclipse.emf.ecore.EcorePackage;
 import org.eclipse.emf.ecore.change.util.ChangeRecorder;
 import org.eclipse.emf.ecore.resource.Resource;
@@ -57,8 +64,9 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.handlers.HandlerUtil;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import nl.vu.cs.bumble.emfcollaborationplugin.Activator;
+import nl.vu.cs.bumble.statemachine.Input;
 import nl.vu.cs.bumble.statemachine.impl.StateMachineImpl;
 
 public class EmfHandler extends AbstractHandler {
@@ -127,7 +135,9 @@ public class EmfHandler extends AbstractHandler {
 				}
 			}	
 			
-			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH);
+			ChangeFlag changeFlag = new ChangeFlag();
+			
+			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH, changeFlag);
 		
 //			SubscriptionListener listener = new ExampleXMISubscriptionListener(modelUri) {
 //				public void onIncrementalUpdate(final EObject incrementalUpdate) {
@@ -145,7 +155,10 @@ public class EmfHandler extends AbstractHandler {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
 					      printResponse(
 					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
-					      executeJsonPatch(patch, editor);
+					      if(changeFlag.getFlag()) {
+					    	  executeJsonPatch(patch, editor);
+					      }
+					      changeFlag.setFlag(true);
 					   }
 			};
 			           
@@ -168,6 +181,9 @@ public class EmfHandler extends AbstractHandler {
 			if(op == "remove") {
 				this.applyRemovePatch(model, patch);
 			}
+			if(op == "add") {
+				this.applyAddPatch(model, patch);
+			}
 		}
 		
 		try {
@@ -177,6 +193,164 @@ public class EmfHandler extends AbstractHandler {
 			e1.printStackTrace();
 		}
 		
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void applyAddPatch(EObject model, Operation patch) {
+		
+		
+		String path = patch.getPath();		
+		String[] paths = path.split("/");
+		
+		
+		paths = Arrays.copyOfRange(paths, 0, paths.length-1);
+		
+		String objName = "";
+		
+		try {
+		JsonNode patchJson = converter.objectToJsonNode(patch);
+
+		JsonNode valueNode = patchJson.get("value");
+		
+		objName = valueNode.get("value").get("eClass").asText();
+		
+		} catch (EncodingException e) {
+		e.printStackTrace();
+		}
+		
+		objName = this.convertEClassTypeToLocal(objName);
+		
+		// TODO: can be incorrect 
+		objName = objName.split("#//")[1];
+		
+		System.out.println("obj name : " + objName);
+		
+		EObject testObj = model.eContents().get(1);
+		
+		System.out.println("test obj: " + testObj);
+				
+		
+		System.out.println("class name: " + testObj.eClass().getInstanceClassName());
+		
+		EPackage testPackage = model.eClass().getEPackage();
+		
+		EClassifier classif = testPackage.getEClassifier(objName);
+		
+		System.out.println("classifier: " + classif);
+		
+//		EList<EClassifier> classifs = testPackage.getEClassifiers();
+//		
+//		
+//		for(EClassifier cls : classifs) {
+//			System.out.println("clas: " + cls);
+//		}
+		
+		EObject newObj = null;
+		
+		if (classif != null && classif instanceof EClass) {
+
+			  newObj = EcoreUtil.create((EClass)classif);
+			  System.out.println("new obj: " + newObj);
+		}
+//		EClass eClass =
+//	    EObject newObj = EcoreUtil.create(eClass);
+		
+		EList<EStructuralFeature> allEStructFeats = model.eClass().getEAllStructuralFeatures();
+		
+//		for(EStructuralFeature esf : allEStructFeats)
+//		{
+//			System.out.println("feature ID: " + esf.getFeatureID());
+//			System.out.println("feature Name: " + esf.getName());
+//		    System.out.println("object: " + model.eGet(esf));
+//		    if(esf.getName() == "input") {
+//			    EList<EObject> list =(EList<EObject>)model.eGet(esf);
+//			    list.add(copyObj);
+//		    }
+//		}
+		
+		
+		EStructuralFeature feature = model.eClass().getEStructuralFeature("input");
+		
+		System.out.println("feature get input: " + feature);
+		
+		EList<EObject> list =(EList<EObject>)model.eGet(feature);
+		list.add(newObj);
+		
+//		System.out.println( "Feature: " + testObj.eClass().getEStructuralFeature("name"));
+//		
+//		Object list =testObj.eGet(testObj.eClass().getEStructuralFeature("name"));
+//		list.add(copyObj);
+		
+//		JsonNode jsonRoot;
+//		try {
+//			jsonRoot = converter.objectToJsonNode(model);
+//			System.out.println("model in json: " + jsonRoot.toPrettyString());
+//			
+//			JsonNode testLocation = jsonRoot.path("input");
+//			ObjectNode addedNode = ((ObjectNode) testLocation).putObject("input");
+//			
+//			System.out.println("model in json after: " + jsonRoot.toPrettyString());
+//		} catch (EncodingException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+		
+		
+//		EClass eClass =
+//		
+//		EObject newObj = EcoreUtil.create(eClass);
+//		
+
+//		EList<EObject> contents = model.eContents();
+//		contents.add(newObj);
+
+		if(paths.length == 1) {
+			
+		}
+//		String rootClassName = paths[1];
+//		int rootPosition = Integer.parseInt(paths[2]);
+//		String newValue = "";
+//		
+
+//		
+//		EObject objToPatch = model.eContents().get(0);
+//		
+//		EList<EObject> contents = model.eContents();
+		
+//		int counter = 0;
+//				
+//		for(int i = 0; i < contents.size(); i++) {
+//			EObject rootNode = model.eContents().get(i);
+//			String objClassName = rootNode.eContainmentFeature().getName();
+//			
+//			if( objClassName.equals(rootClassName)) {				
+//				if(counter == rootPosition) {
+//					objToPatch = rootNode;
+//					break;
+//				} else {
+//					counter++;
+//				}
+//			}
+//		}
+//		
+//		// /input/0/baseconcept/1/baseconcept/- -> /baseconcept/1/
+//		paths = Arrays.copyOfRange(paths, 3, paths.length-1);
+//		
+//		
+//		while(paths.length > 0) {
+//			int subNodePosition = Integer.parseInt(paths[1]);
+//			
+//			// /baseconcept/1/baseconcept/0  -> /baseconcept/0
+//			paths = Arrays.copyOfRange(paths, 2, paths.length);
+//			objToPatch = objToPatch.eContents().get(subNodePosition);
+//		}
+
+		
+//		System.out.println("test : "+objToPatch);
+//		System.out.println("test 2: "+objToPatch.eContainingFeature());
+		
+//		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
+//		System.out.println("test 3: "+ objToPatch);
 	}
 	
 	private void applyRemovePatch(EObject model, Operation patch) {
@@ -278,7 +452,7 @@ public class EmfHandler extends AbstractHandler {
 		
 //		System.out.println("test : "+objToPatch);
 //		System.out.println("test 2: "+objToPatch.eContainingFeature());
-		
+		System.out.println("featureName: "+ featureName);
 		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
 //		System.out.println("test 3: "+ objToPatch);
 	}
@@ -337,8 +511,8 @@ public class EmfHandler extends AbstractHandler {
 	private String convertEClassTypeToWorkspace(EObject model) throws EncodingException {
 		String json = client.encode(model, FORMAT_JSON_V2);
 		
-		System.out.println("local: " + LOCAL_ECORE_PATH);
-		System.out.println("server: " + SERVER_ECORE_PATH);
+//		System.out.println("local: " + LOCAL_ECORE_PATH);
+//		System.out.println("server: " + SERVER_ECORE_PATH);
 		
 		String converted = json.replace(LOCAL_ECORE_PATH, SERVER_ECORE_PATH);
 //		String converted = json; 
@@ -349,8 +523,8 @@ public class EmfHandler extends AbstractHandler {
 	private String convertEClassTypeToLocal(String model) {
 		String converted = model.replace(SERVER_ECORE_PATH, LOCAL_ECORE_PATH);
 		
-		System.out.println("local: " + LOCAL_ECORE_PATH);
-		System.out.println("server: " + SERVER_ECORE_PATH);
+//		System.out.println("local: " + LOCAL_ECORE_PATH);
+//		System.out.println("server: " + SERVER_ECORE_PATH);
 		
 		return converted;
 //		return model;

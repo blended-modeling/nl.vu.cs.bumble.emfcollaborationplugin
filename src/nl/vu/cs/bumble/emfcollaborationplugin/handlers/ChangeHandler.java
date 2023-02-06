@@ -21,11 +21,13 @@ public class ChangeHandler {
 	private static final String OP_REMOVE = "remove";
 	private static final String OP_ADD = "add";
 	private static final String OP_UNKNOWN = "unknown";
+	private ChangeFlag changeFlag;
 	
-	public ChangeHandler(Resource root, ModelServerClient client, String modelUri, String path) {
+	public ChangeHandler(Resource root, ModelServerClient client, String modelUri, String path, ChangeFlag changeFlag) {
 		this.client = client;
 		this.modelUri = modelUri;
 		this.LOCAL_ECORE_PATH = path;
+		this.changeFlag = changeFlag;
 		
 		new ChangeRecorder(root) {
 			public void notifyChanged(Notification notification) {
@@ -34,6 +36,7 @@ public class ChangeHandler {
 
 				if (notificationClassName.contains("ENotification") ) {
 					handleModelChanges(notification);
+					changeFlag.setFlag(false); 
 				}
 			}
 		};
@@ -41,6 +44,14 @@ public class ChangeHandler {
 	
 	private void handleModelChanges(Notification notification) {
 		System.out.println("notification : " +notification);
+		
+		try {
+			JsonNode newValueJson = converter.objectToJsonNode((EObject)notification.getNotifier());
+			System.out.println("note: " + newValueJson.toPrettyString());
+			
+		} catch (EncodingException e) {
+			e.printStackTrace();
+		}
 		
 		String operation = this.getPatchOp(notification);
 		String path = this.getPatchPath(notification, operation);
@@ -50,7 +61,7 @@ public class ChangeHandler {
 		patch.setOp(operation);
 		patch.setPath(path);
 		
-		if (operation == OP_REMOVE || operation == OP_SET) {
+		if (operation == OP_SET || operation == OP_REMOVE) {
 			patch.setValue(notification.getNewStringValue());
 		} 
 		
@@ -107,10 +118,7 @@ public class ChangeHandler {
 			e.printStackTrace();
 		}
 		
-		System.out.println("path without feature: " + path);
 		path = path + "/" + feature;
-		
-		System.out.println("path with feature: " + path);
 		
 		if(op == OP_REMOVE) {
 			String position = Integer.toString(notification.getPosition());
