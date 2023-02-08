@@ -31,6 +31,7 @@ import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.common.util.WrappedException;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EClassifier;
+import org.eclipse.emf.ecore.EFactory;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EStructuralFeature;
@@ -135,30 +136,13 @@ public class EmfHandler extends AbstractHandler {
 				}
 			}	
 			
-			ChangeFlag changeFlag = new ChangeFlag();
-			
-			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH, changeFlag);
-		
-//			SubscriptionListener listener = new ExampleXMISubscriptionListener(modelUri) {
-//				public void onIncrementalUpdate(final EObject incrementalUpdate) {
-//				      printResponse("Incremental <XmiEObject> update from model server received: " + incrementalUpdate.toString());
-//
-//				      try {
-//						System.out.println("xmi patch: " + converter.objectToJsonNode(incrementalUpdate).toPrettyString());
-//					} catch (EncodingException e) {
-//						e.printStackTrace();
-//					}
-//				   }
-//			};
-			
+			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH);
+					
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
 					      printResponse(
-					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));
-					      if(changeFlag.getFlag()) {
+					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));					      
 					    	  executeJsonPatch(patch, editor);
-					      }
-					      changeFlag.setFlag(true);
 					   }
 			};
 			           
@@ -195,172 +179,49 @@ public class EmfHandler extends AbstractHandler {
 		
 	}
 	
-	@SuppressWarnings("unchecked")
-	private void applyAddPatch(EObject model, Operation patch) {
+	private EObject createNewObject(EObject model, Operation patch) {
+		String className = "";
 		
-		
-		String path = patch.getPath();		
-		String[] paths = path.split("/");
-		
-		
-		paths = Arrays.copyOfRange(paths, 0, paths.length-1);
-		
-		String objName = "";
-		
+		//TODO: sometimes the patch is converted to a JsonNode without value
 		try {
-		JsonNode patchJson = converter.objectToJsonNode(patch);
-
-		JsonNode valueNode = patchJson.get("value");
-		
-		objName = valueNode.get("value").get("eClass").asText();
+			JsonNode patchJson = converter.objectToJsonNode(patch);
+			JsonNode valueNode = patchJson.get("value");
+			className = valueNode.get("value").get("eClass").asText();
 		
 		} catch (EncodingException e) {
-		e.printStackTrace();
+			e.printStackTrace();
 		}
 		
-		objName = this.convertEClassTypeToLocal(objName);
+		className = this.convertEClassTypeToLocal(className);
 		
 		// TODO: can be incorrect 
-		objName = objName.split("#//")[1];
+		className = className.split("#//")[1];
 		
-		System.out.println("obj name : " + objName);
+		System.out.println("class name : " + className);
 		
-		EObject testObj = model.eContents().get(1);
-		
-		System.out.println("test obj: " + testObj);
-				
-		
-		System.out.println("class name: " + testObj.eClass().getInstanceClassName());
-		
-		EPackage testPackage = model.eClass().getEPackage();
-		
-		EClassifier classif = testPackage.getEClassifier(objName);
-		
+
+		EPackage modelPackage = model.eClass().getEPackage();		
+		EClassifier classif = modelPackage.getEClassifier(className);
 		System.out.println("classifier: " + classif);
 		
-//		EList<EClassifier> classifs = testPackage.getEClassifiers();
-//		
-//		
-//		for(EClassifier cls : classifs) {
-//			System.out.println("clas: " + cls);
-//		}
+		EFactory modelFactory = modelPackage.getEFactoryInstance();
 		
 		EObject newObj = null;
 		
 		if (classif != null && classif instanceof EClass) {
 
-			  newObj = EcoreUtil.create((EClass)classif);
-			  System.out.println("new obj: " + newObj);
+			  newObj = modelFactory.create((EClass) classif);		 
+			  System.out.println("new obj by factory: " + newObj);
+//			  newObj = EcoreUtil.create((EClass)classif);
 		}
-//		EClass eClass =
-//	    EObject newObj = EcoreUtil.create(eClass);
 		
-		EList<EStructuralFeature> allEStructFeats = model.eClass().getEAllStructuralFeatures();
-		
-//		for(EStructuralFeature esf : allEStructFeats)
-//		{
-//			System.out.println("feature ID: " + esf.getFeatureID());
-//			System.out.println("feature Name: " + esf.getName());
-//		    System.out.println("object: " + model.eGet(esf));
-//		    if(esf.getName() == "input") {
-//			    EList<EObject> list =(EList<EObject>)model.eGet(esf);
-//			    list.add(copyObj);
-//		    }
-//		}
-		
-		
-		EStructuralFeature feature = model.eClass().getEStructuralFeature("input");
-		
-		System.out.println("feature get input: " + feature);
-		
-		EList<EObject> list =(EList<EObject>)model.eGet(feature);
-		list.add(newObj);
-		
-//		System.out.println( "Feature: " + testObj.eClass().getEStructuralFeature("name"));
-//		
-//		Object list =testObj.eGet(testObj.eClass().getEStructuralFeature("name"));
-//		list.add(copyObj);
-		
-//		JsonNode jsonRoot;
-//		try {
-//			jsonRoot = converter.objectToJsonNode(model);
-//			System.out.println("model in json: " + jsonRoot.toPrettyString());
-//			
-//			JsonNode testLocation = jsonRoot.path("input");
-//			ObjectNode addedNode = ((ObjectNode) testLocation).putObject("input");
-//			
-//			System.out.println("model in json after: " + jsonRoot.toPrettyString());
-//		} catch (EncodingException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-		
-		
-//		EClass eClass =
-//		
-//		EObject newObj = EcoreUtil.create(eClass);
-//		
-
-//		EList<EObject> contents = model.eContents();
-//		contents.add(newObj);
-
-		if(paths.length == 1) {
-			
-		}
-//		String rootClassName = paths[1];
-//		int rootPosition = Integer.parseInt(paths[2]);
-//		String newValue = "";
-//		
-
-//		
-//		EObject objToPatch = model.eContents().get(0);
-//		
-//		EList<EObject> contents = model.eContents();
-		
-//		int counter = 0;
-//				
-//		for(int i = 0; i < contents.size(); i++) {
-//			EObject rootNode = model.eContents().get(i);
-//			String objClassName = rootNode.eContainmentFeature().getName();
-//			
-//			if( objClassName.equals(rootClassName)) {				
-//				if(counter == rootPosition) {
-//					objToPatch = rootNode;
-//					break;
-//				} else {
-//					counter++;
-//				}
-//			}
-//		}
-//		
-//		// /input/0/baseconcept/1/baseconcept/- -> /baseconcept/1/
-//		paths = Arrays.copyOfRange(paths, 3, paths.length-1);
-//		
-//		
-//		while(paths.length > 0) {
-//			int subNodePosition = Integer.parseInt(paths[1]);
-//			
-//			// /baseconcept/1/baseconcept/0  -> /baseconcept/0
-//			paths = Arrays.copyOfRange(paths, 2, paths.length);
-//			objToPatch = objToPatch.eContents().get(subNodePosition);
-//		}
-
-		
-//		System.out.println("test : "+objToPatch);
-//		System.out.println("test 2: "+objToPatch.eContainingFeature());
-		
-//		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
-//		System.out.println("test 3: "+ objToPatch);
+		return newObj;
 	}
 	
-	private void applyRemovePatch(EObject model, Operation patch) {
-		String path = patch.getPath();		
-		String[] paths = path.split("/");
-		
+	private EObject findObjToPatch(EObject model, String[] paths, int len) {
+		EObject objToPatch = model.eContents().get(0);
 		String rootClassName = paths[1];
 		int rootPosition = Integer.parseInt(paths[2]);
-		
-		EObject objToPatch = model.eContents().get(0);
 		
 		EList<EObject> contents = model.eContents();
 		
@@ -381,14 +242,57 @@ public class EmfHandler extends AbstractHandler {
 		}
 		
 		paths = Arrays.copyOfRange(paths, 3, paths.length);
-		
-		
-		while(paths.length > 0) {
+
+		while(paths.length > len) {
 			int subNodePosition = Integer.parseInt(paths[1]);
 			
 			paths = Arrays.copyOfRange(paths, 2, paths.length);
 			objToPatch = objToPatch.eContents().get(subNodePosition);
 		}
+		
+		return objToPatch;
+	}
+		
+	@SuppressWarnings("unchecked")
+	private void applyAddPatch(EObject model, Operation patch) {
+			
+		EObject newObj = this.createNewObject(model, patch);
+		String className = newObj.eClass().getName();
+		
+		// TODO: need to related Class name with Feature name 
+		String featureName = "";
+		
+		if (className.equals("State")) {
+			featureName = "states";
+		} else {
+			featureName = className.toLowerCase();
+		}
+		
+		String path = patch.getPath();		
+		String[] paths = path.split("/");
+		
+		EObject objToPatch = model;
+		
+		// path: /input/-
+		if (!paths[2].equals("-")) {
+			objToPatch = this.findObjToPatch(model, paths, 2);
+		}
+		
+		System.out.println("obj to patch: " + objToPatch); 	
+		
+		EStructuralFeature feature = model.eClass().getEStructuralFeature(featureName);
+		System.out.println("feature get: " + feature);
+		
+		EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
+
+		list.add(newObj);
+	}
+	
+	private void applyRemovePatch(EObject model, Operation patch) {
+		String path = patch.getPath();		
+		String[] paths = path.split("/");
+		
+		EObject objToPatch = this.findObjToPatch(model, paths, 0);
 		
 		EcoreUtil.delete(objToPatch);
 		
@@ -398,8 +302,6 @@ public class EmfHandler extends AbstractHandler {
 		String path = patch.getPath();		
 		String[] paths = path.split("/");
 				
-		String rootClassName = paths[1];
-		int rootPosition = Integer.parseInt(paths[2]);
 		String featureName = paths[paths.length - 1];
 		String newValue = "";
 		
@@ -407,54 +309,20 @@ public class EmfHandler extends AbstractHandler {
 			JsonNode patchJson = converter.objectToJsonNode(patch);
 			JsonNode valueNode = patchJson.get("value");
 			
-			String valueType = valueNode.get("eClass").asText();
+//			String valueType = valueNode.get("eClass").asText();
 			newValue = valueNode.get("value").asText();
 			
-			System.out.println("new value type: " + valueType);
-			System.out.println("new value: " + newValue);
+//			System.out.println("new value type: " + valueType);
+//			System.out.println("new value: " + newValue);
 			
 		} catch (EncodingException e) {
 			e.printStackTrace();
 		}
 		
-		EObject objToPatch = model.eContents().get(0);
+		EObject objToPatch = this.findObjToPatch(model, paths, 1);
 		
-		EList<EObject> contents = model.eContents();
-		
-		int counter = 0;
-				
-		for(int i = 0; i < contents.size(); i++) {
-			EObject rootNode = model.eContents().get(i);
-			String objClassName = rootNode.eContainmentFeature().getName();
-			
-			if( objClassName.equals(rootClassName)) {				
-				if(counter == rootPosition) {
-					objToPatch = rootNode;
-					break;
-				} else {
-					counter++;
-				}
-			}
-		}
-		
-		// /input/0/baseconcept/1/baseconcept/0/name -> /baseconcept/1/baseconcept/0
-		paths = Arrays.copyOfRange(paths, 3, paths.length-1);
-		
-		
-		while(paths.length > 0) {
-			int subNodePosition = Integer.parseInt(paths[1]);
-			
-			// /baseconcept/1/baseconcept/0  -> /baseconcept/0
-			paths = Arrays.copyOfRange(paths, 2, paths.length);
-			objToPatch = objToPatch.eContents().get(subNodePosition);
-		}
-
-		
-//		System.out.println("test : "+objToPatch);
-//		System.out.println("test 2: "+objToPatch.eContainingFeature());
 		System.out.println("featureName: "+ featureName);
 		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
-//		System.out.println("test 3: "+ objToPatch);
 	}
 			
 	private void addModelToModelInventory(String modelUri, EObject model) throws EncodingException {

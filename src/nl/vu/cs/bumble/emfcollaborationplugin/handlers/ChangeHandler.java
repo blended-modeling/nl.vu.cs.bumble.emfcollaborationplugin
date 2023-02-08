@@ -21,13 +21,11 @@ public class ChangeHandler {
 	private static final String OP_REMOVE = "remove";
 	private static final String OP_ADD = "add";
 	private static final String OP_UNKNOWN = "unknown";
-	private ChangeFlag changeFlag;
 	
-	public ChangeHandler(Resource root, ModelServerClient client, String modelUri, String path, ChangeFlag changeFlag) {
+	public ChangeHandler(Resource root, ModelServerClient client, String modelUri, String path) {
 		this.client = client;
 		this.modelUri = modelUri;
 		this.LOCAL_ECORE_PATH = path;
-		this.changeFlag = changeFlag;
 		
 		new ChangeRecorder(root) {
 			public void notifyChanged(Notification notification) {
@@ -35,8 +33,7 @@ public class ChangeHandler {
 				String notificationClassName = notification.getClass().getSimpleName();
 
 				if (notificationClassName.contains("ENotification") ) {
-					handleModelChanges(notification);
-					changeFlag.setFlag(false); 
+//					handleModelChanges(notification);
 				}
 			}
 		};
