@@ -209,10 +209,7 @@ public class EmfHandler extends AbstractHandler {
 		EObject newObj = null;
 		
 		if (classif != null && classif instanceof EClass) {
-
 			  newObj = modelFactory.create((EClass) classif);		 
-			  System.out.println("new obj by factory: " + newObj);
-//			  newObj = EcoreUtil.create((EClass)classif);
 		}
 		
 		return newObj;
@@ -257,34 +254,23 @@ public class EmfHandler extends AbstractHandler {
 	private void applyAddPatch(EObject model, Operation patch) {
 			
 		EObject newObj = this.createNewObject(model, patch);
-		String className = newObj.eClass().getName();
-		
-		// TODO: need to related Class name with Feature name 
-		String featureName = "";
-		
-		if (className.equals("State")) {
-			featureName = "states";
-		} else {
-			featureName = className.toLowerCase();
-		}
-		
+				
 		String path = patch.getPath();		
 		String[] paths = path.split("/");
 		
 		EObject objToPatch = model;
 		
-		// path: /input/-
 		if (!paths[2].equals("-")) {
 			objToPatch = this.findObjToPatch(model, paths, 2);
 		}
 		
-		System.out.println("obj to patch: " + objToPatch); 	
+		// path: /input/-
+		String featureName = paths[paths.length - 2];
 		
-		EStructuralFeature feature = model.eClass().getEStructuralFeature(featureName);
+		EStructuralFeature feature = objToPatch.eClass().getEStructuralFeature(featureName);
 		System.out.println("feature get: " + feature);
 		
 		EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
-
 		list.add(newObj);
 	}
 	
