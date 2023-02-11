@@ -22,7 +22,7 @@ public class ChangeHandler {
 	private static final String OP_ADD = "add";
 	private static final String OP_UNKNOWN = "unknown";
 	
-	public ChangeHandler(Resource root, ModelServerClient client, String modelUri, String path) {
+	public ChangeHandler(Resource root, ModelServerClient client, String modelUri, String path, LocalChangeListenerSwitch listenerSwitch) {
 		this.client = client;
 		this.modelUri = modelUri;
 		this.LOCAL_ECORE_PATH = path;
@@ -33,7 +33,13 @@ public class ChangeHandler {
 				String notificationClassName = notification.getClass().getSimpleName();
 
 				if (notificationClassName.contains("ENotification") ) {
-//					handleModelChanges(notification);
+					
+					if(listenerSwitch.isActivated()) {
+						handleModelChanges(notification);
+						listenerSwitch.switchOff();
+					} else {
+					    listenerSwitch.switchOn();
+					}
 				}
 			}
 		};

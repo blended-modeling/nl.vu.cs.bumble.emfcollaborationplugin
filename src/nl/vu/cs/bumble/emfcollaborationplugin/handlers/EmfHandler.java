@@ -136,13 +136,22 @@ public class EmfHandler extends AbstractHandler {
 				}
 			}	
 			
-			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH);
+			LocalChangeListenerSwitch listenerSwitch = LocalChangeListenerSwitch.getInstance();
+			
+			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH, listenerSwitch);
 					
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
 					      printResponse(
-					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));					      
-					    	  executeJsonPatch(patch, editor);
+					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
+					      	
+					      	  if(listenerSwitch.isActivated()) {
+					      		  listenerSwitch.switchOff();
+					      		  executeJsonPatch(patch, editor);
+					      		  
+					      	  } else {
+					      		  listenerSwitch.switchOn();
+					      	  }
 					   }
 			};
 			           
