@@ -90,69 +90,34 @@ public class EmfHandler extends AbstractHandler {
 		if(editor instanceof IEditingDomainProvider) {
 			EObject rootElement = this.getRootModel(editor);
 			Resource resource = ((IEditingDomainProvider) editor).getEditingDomain().getResourceSet().getResources().get(0);
-			
-//			System.out.println(rootElement.eContents());
-//			((StateMachineImpl) rootElement).setName("random");
-//			try {
-////				((StateMachineImpl) rootElement).eResource().getContents().add(rootElement);
-//				((StateMachineImpl) rootElement).eResource().save(Collections.EMPTY_MAP);
-//			} catch (IOException e1) {
-//				// TODO Auto-generated catch block
-//				e1.printStackTrace();
-//			}
-			
-			try {
-				this.setLocalEcorePath(rootElement);
-			} catch (EncodingException e1) {
-				e1.printStackTrace();
-			}
-			
-			try {
-				this.setServerEcorePath();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			} catch (EncodingException e) {
-				e.printStackTrace();
-			}
+						
+			this.setLocalEcorePath(rootElement);
+			this.setServerEcorePath();
 			
 			String modelUri = this.getNameOfModel(rootElement);
-			System.out.println("model name: " + modelUri);
-			
 			
 			if(this.isModelExistOnServer(modelUri)) {
-				try {
-					this.updateLocalModel(modelUri, rootElement);
-
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				
+				this.updateLocalModel(modelUri, rootElement);
 			} else {
-				try {
-					this.addModelToModelInventory(modelUri, rootElement);
-					
-				} catch (EncodingException e) {
-					e.printStackTrace();
-				}
+				this.addModelToModelInventory(modelUri, rootElement);
 			}	
 			
 			LocalChangeListenerSwitch listenerSwitch = LocalChangeListenerSwitch.getInstance();
-			
 			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH, listenerSwitch);
 					
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
-					      printResponse(
-					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
-					      	
-					      	  if(listenerSwitch.isActivated()) {
-					      		  listenerSwitch.switchOff();
-					      		  executeJsonPatch(patch, editor);
+					   printResponse(
+						         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
+					   
+					   if(listenerSwitch.isActivated()) {
+					      listenerSwitch.switchOff();
+					      executeJsonPatch(patch, editor);
 					      		  
-					      	  } else {
-					      		  listenerSwitch.switchOn();
-					      	  }
+					   } else {
+					      listenerSwitch.switchOn();
 					   }
+				   }
 			};
 			           
 			client.subscribe(modelUri, listener);						
@@ -162,6 +127,8 @@ public class EmfHandler extends AbstractHandler {
 	};
 	
 	private void executeJsonPatch(JsonPatch patches, IEditorPart editor) {
+		PrintUtil.toPrettyString(patches);
+		
 		EObject model = getRootModel(editor);
 		
 		for(int i = 0; i < patches.getPatch().size(); i++) {
@@ -224,7 +191,7 @@ public class EmfHandler extends AbstractHandler {
 		return newObj;
 	}
 	
-	private EObject findObjToPatch(EObject model, String[] paths, int len) {
+	private EObject findObjToPatch(EObject model, String[] paths, int len) {	
 		EObject objToPatch = model.eContents().get(0);
 		String rootClassName = paths[1];
 		int rootPosition = Integer.parseInt(paths[2]);
@@ -283,14 +250,24 @@ public class EmfHandler extends AbstractHandler {
 		list.add(newObj);
 	}
 	
+	private boolean pathIncludesTargetIndex(String[] paths) {
+		// path: /input => paths.length = 2
+		// path: /input/0 => paths.length = 3
+		return paths.length % 2 == 1;
+	}
+	
 	private void applyRemovePatch(EObject model, Operation patch) {
 		String path = patch.getPath();		
 		String[] paths = path.split("/");
 		
+		if(!pathIncludesTargetIndex(paths)) {
+			path = path+ "/0";
+			paths = path.split("/");
+		}
+		
 		EObject objToPatch = this.findObjToPatch(model, paths, 0);
 		
 		EcoreUtil.delete(objToPatch);
-		
 	}
 	
 	private void applyReplacePatch(EObject model, Operation patch) {
@@ -300,27 +277,29 @@ public class EmfHandler extends AbstractHandler {
 		String featureName = paths[paths.length - 1];
 		String newValue = "";
 		
-		try {
-			JsonNode patchJson = converter.objectToJsonNode(patch);
-			JsonNode valueNode = patchJson.get("value");
+		if (!featureName.equals("$ref")) {
+			try {
+				JsonNode patchJson = converter.objectToJsonNode(patch);
+				JsonNode valueNode = patchJson.get("value");
+				
+//				String valueType = valueNode.get("eClass").asText();
+				newValue = valueNode.get("value").asText();
+				
+//				System.out.println("new value type: " + valueType);
+//				System.out.println("new value: " + newValue);
+				
+			} catch (EncodingException e) {
+				e.printStackTrace();
+			}
 			
-//			String valueType = valueNode.get("eClass").asText();
-			newValue = valueNode.get("value").asText();
+			EObject objToPatch = this.findObjToPatch(model, paths, 1);
 			
-//			System.out.println("new value type: " + valueType);
-//			System.out.println("new value: " + newValue);
-			
-		} catch (EncodingException e) {
-			e.printStackTrace();
+			System.out.println("featureName: "+ featureName);
+			objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
 		}
-		
-		EObject objToPatch = this.findObjToPatch(model, paths, 1);
-		
-		System.out.println("featureName: "+ featureName);
-		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
 	}
 			
-	private void addModelToModelInventory(String modelUri, EObject model) throws EncodingException {
+	private void addModelToModelInventory(String modelUri, EObject model) {
 		String payload = this.convertEClassTypeToWorkspace(model);
 		Response<String> response = client.create(modelUri, payload).join();
 	}
@@ -330,7 +309,8 @@ public class EmfHandler extends AbstractHandler {
 		return response.getStatusCode().equals(STATUS_OK);
 	}
 		
-	private void updateLocalModel(String modelUri, EObject model) throws IOException {
+	private void updateLocalModel(String modelUri, EObject model) {
+		
 		String response = this.getModelFromModelInventory(modelUri);
 		String converted = this.convertEClassTypeToLocal(response);
 		EObject updatedModel = client.decode(converted, FORMAT_JSON_V2).get();
@@ -345,40 +325,49 @@ public class EmfHandler extends AbstractHandler {
 		}
 	}
 	
-	public String getModelFromModelInventory(String modelUri) throws IOException {
+	public String getModelFromModelInventory(String modelUri) {
 		Response<String> response = client.get(modelUri).join();
 		String result = response.body();
 		
 		return result;
 	}
 	
-	private void setLocalEcorePath(EObject model) throws EncodingException {
-		JsonNode jsonRoot = converter.objectToJsonNode(model);
-        String path = jsonRoot.get("eClass").asText().split("#//")[0];
-        
+	private void setLocalEcorePath(EObject model) {
+		String path = "";
+		JsonNode jsonRoot;
+		try {
+			jsonRoot = converter.objectToJsonNode(model);
+			path = jsonRoot.get("eClass").asText().split("#//")[0];
+		} catch (EncodingException e) {
+			e.printStackTrace();
+		}
+
         this.LOCAL_ECORE_PATH = path;
 	}
 	
-	private void setServerEcorePath() throws IOException, EncodingException {
+	private void setServerEcorePath() {
 		String path = "";
-		String response = this.getModelFromModelInventory("EcoreURI.xmi");
+		String response;
+		response = this.getModelFromModelInventory("EcoreURI.xmi");
 		
 		EObject obj = client.decode(response, FORMAT_JSON_V2).get();
-		JsonNode json = converter.objectToJsonNode(obj);
-		String raw = json.get("eClass").toString().split("#//")[0];
-		path = raw.substring(1);
-		
+		JsonNode json;
+		try {
+			json = converter.objectToJsonNode(obj);
+			
+			String raw = json.get("eClass").toString().split("#//")[0];
+			path = raw.substring(1);
+		} catch (EncodingException e) {
+			e.printStackTrace();
+		}
+			
 		this.SERVER_ECORE_PATH = path;
 	}
 	
-	private String convertEClassTypeToWorkspace(EObject model) throws EncodingException {
+	private String convertEClassTypeToWorkspace(EObject model) {
 		String json = client.encode(model, FORMAT_JSON_V2);
 		
-//		System.out.println("local: " + LOCAL_ECORE_PATH);
-//		System.out.println("server: " + SERVER_ECORE_PATH);
-		
 		String converted = json.replace(LOCAL_ECORE_PATH, SERVER_ECORE_PATH);
-//		String converted = json; 
 		
 		return converted;
 	}
@@ -386,16 +375,12 @@ public class EmfHandler extends AbstractHandler {
 	private String convertEClassTypeToLocal(String model) {
 		String converted = model.replace(SERVER_ECORE_PATH, LOCAL_ECORE_PATH);
 		
-//		System.out.println("local: " + LOCAL_ECORE_PATH);
-//		System.out.println("server: " + SERVER_ECORE_PATH);
-		
 		return converted;
-//		return model;
 	}
 	
 	private String getNameOfModel(EObject model) {
 		String name = model.eResource().getURI().lastSegment();
-//		String name = "TrafficSignals.statemachine";
+
 		return name;
 	}
 	

@@ -46,11 +46,11 @@ public class ChangeHandler {
 	}
 	
 	private void handleModelChanges(Notification notification) {
-		System.out.println("notification : " +notification);
+//		System.out.println("notification : " +notification);
 		
 		try {
 			JsonNode newValueJson = converter.objectToJsonNode((EObject)notification.getNotifier());
-			System.out.println("note: " + newValueJson.toPrettyString());
+//			System.out.println("note: " + newValueJson.toPrettyString());
 			
 		} catch (EncodingException e) {
 			e.printStackTrace();
