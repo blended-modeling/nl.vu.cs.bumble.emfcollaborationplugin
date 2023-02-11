@@ -44,10 +44,12 @@ import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.impl.EcoreResourceFactoryImpl;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
+import org.eclipse.emfcloud.modelserver.client.JsonToEObjectSubscriptionListener;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
 import org.eclipse.emfcloud.modelserver.client.Response;
 import org.eclipse.emfcloud.modelserver.client.SubscriptionListener;
 import org.eclipse.emfcloud.modelserver.client.SubscriptionOptions;
+import org.eclipse.emfcloud.modelserver.client.XmiToEObjectSubscriptionListener;
 import org.eclipse.emfcloud.modelserver.client.v2.ModelServerClientV2;
 import org.eclipse.emfcloud.modelserver.common.APIVersion;
 import org.eclipse.emfcloud.modelserver.common.codecs.DefaultJsonCodec;
@@ -106,14 +108,24 @@ public class EmfHandler extends AbstractHandler {
 			SubscribeListenerSwitch subscribeListenerSwitch = SubscribeListenerSwitch.getInstance();
 			
 			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH, localListenerSwitch, subscribeListenerSwitch);
-					
+			
+//			XmiToEObjectSubscriptionListener listener = new XmiToEObjectSubscriptionListener() {
+//				public void onIncrementalUpdate(final EObject command) {
+//					JsonNode jsonCommand;
+//					try {
+//						jsonCommand = converter.objectToJsonNode(command);
+//						System.out.println("Incremental <JsonPatch> update from model server received:\n" +jsonCommand.toPrettyString());
+//					} catch (EncodingException e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					}
+//				}
+//			};
+			
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
 					   printResponse(
 						         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
-					   
-					   System.out.println("sub: Local listener activated: " + localListenerSwitch.isActivated());
-					   System.out.println("sub: Subscribe listener activated: " + subscribeListenerSwitch.isActivated());
 					   
 					   if(!localListenerSwitch.isActivated() && !subscribeListenerSwitch.isActivated()) {
 						   localListenerSwitch.switchOn();
@@ -124,8 +136,13 @@ public class EmfHandler extends AbstractHandler {
 					      localListenerSwitch.switchOff();
 					      subscribeListenerSwitch.switchOff();
 					      
-					   	  executeJsonPatch(patch, editor);
-
+					   	  try {
+					   		executeJsonPatch(patch, editor);
+					   	  } catch(Exception e) {
+					   		updateLocalModel(modelUri, getRootModel(editor));
+					   		e.printStackTrace();
+					   	  }
+					     
 					      subscribeListenerSwitch.switchOn();
 					      localListenerSwitch.switchOn();
 					      
@@ -133,17 +150,13 @@ public class EmfHandler extends AbstractHandler {
 					      localListenerSwitch.switchOn();
 					   }
 				   }
-			};
-			           
+			};       
 			client.subscribe(modelUri, listener);						
 		}
 			return null;
-		
 	};
 	
-	private void executeJsonPatch(JsonPatch patches, IEditorPart editor) {
-		PrintUtil.toPrettyString(patches);
-		
+	private void executeJsonPatch(JsonPatch patches, IEditorPart editor) throws Exception {		
 		EObject model = getRootModel(editor);
 		
 		for(int i = 0; i < patches.getPatch().size(); i++) {
@@ -176,6 +189,7 @@ public class EmfHandler extends AbstractHandler {
 		//TODO: sometimes the patch is converted to a JsonNode without value
 		try {
 			JsonNode patchJson = converter.objectToJsonNode(patch);
+			System.out.println("to patch json: "+patchJson.toPrettyString());
 			JsonNode valueNode = patchJson.get("value");
 			className = valueNode.get("value").get("eClass").asText();
 		
@@ -190,7 +204,6 @@ public class EmfHandler extends AbstractHandler {
 		
 		System.out.println("class name : " + className);
 		
-
 		EPackage modelPackage = model.eClass().getEPackage();		
 		EClassifier classif = modelPackage.getEClassifier(className);
 		System.out.println("classifier: " + classif);
@@ -200,7 +213,7 @@ public class EmfHandler extends AbstractHandler {
 		EObject newObj = null;
 		
 		if (classif != null && classif instanceof EClass) {
-			  newObj = modelFactory.create((EClass) classif);		 
+			  newObj = modelFactory.create((EClass) classif);
 		}
 		
 		return newObj;
@@ -243,25 +256,31 @@ public class EmfHandler extends AbstractHandler {
 		
 	@SuppressWarnings("unchecked")
 	private void applyAddPatch(EObject model, Operation patch) {
-			
-		EObject newObj = this.createNewObject(model, patch);
-				
-		String path = patch.getPath();		
+		String path = patch.getPath();	
+		
+		if(!path.contains("-")) {
+			path = path + "/-";
+		}
+		
+		System.out.println("path: " + path);
 		String[] paths = path.split("/");
 		
 		EObject objToPatch = model;
+		String featureName = "";
+		
 		
 		if (!paths[2].equals("-")) {
 			objToPatch = this.findObjToPatch(model, paths, 2);
 		}
 		
 		// path: /input/-
-		String featureName = paths[paths.length - 2];
-		
+		featureName = paths[paths.length - 2];
+				
 		EStructuralFeature feature = objToPatch.eClass().getEStructuralFeature(featureName);
 		System.out.println("feature get: " + feature);
-		
+				
 		EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
+		EObject newObj = this.createNewObject(model, patch);
 		list.add(newObj);
 	}
 	
@@ -392,21 +411,18 @@ public class EmfHandler extends AbstractHandler {
 	
 	private String convertEClassTypeToWorkspace(EObject model) {
 		String json = client.encode(model, FORMAT_JSON_V2);
-		
 		String converted = json.replace(LOCAL_ECORE_PATH, SERVER_ECORE_PATH);
 		
 		return converted;
 	}
 	
 	private String convertEClassTypeToLocal(String model) {
-		String converted = model.replace(SERVER_ECORE_PATH, LOCAL_ECORE_PATH);
-		
+		String converted = model.replace(SERVER_ECORE_PATH, LOCAL_ECORE_PATH);	
 		return converted;
 	}
 	
 	private String getNameOfModel(EObject model) {
 		String name = model.eResource().getURI().lastSegment();
-
 		return name;
 	}
 	
