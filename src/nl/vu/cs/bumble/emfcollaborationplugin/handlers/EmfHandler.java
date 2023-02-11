@@ -102,20 +102,35 @@ public class EmfHandler extends AbstractHandler {
 				this.addModelToModelInventory(modelUri, rootElement);
 			}	
 			
-			LocalChangeListenerSwitch listenerSwitch = LocalChangeListenerSwitch.getInstance();
-			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH, listenerSwitch);
+			LocalChangeListenerSwitch localListenerSwitch = LocalChangeListenerSwitch.getInstance();
+			SubscribeListenerSwitch subscribeListenerSwitch = SubscribeListenerSwitch.getInstance();
+			
+			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH, localListenerSwitch, subscribeListenerSwitch);
 					
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
 					   printResponse(
 						         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
 					   
-					   if(listenerSwitch.isActivated()) {
-					      listenerSwitch.switchOff();
-					      executeJsonPatch(patch, editor);
-					      		  
+					   System.out.println("sub: Local listener activated: " + localListenerSwitch.isActivated());
+					   System.out.println("sub: Subscribe listener activated: " + subscribeListenerSwitch.isActivated());
+					   
+					   if(!localListenerSwitch.isActivated() && !subscribeListenerSwitch.isActivated()) {
+						   localListenerSwitch.switchOn();
+						   subscribeListenerSwitch.switchOn();
+					   }
+					   
+					   if(localListenerSwitch.isActivated()) {
+					      localListenerSwitch.switchOff();
+					      subscribeListenerSwitch.switchOff();
+					      
+					   	  executeJsonPatch(patch, editor);
+
+					      subscribeListenerSwitch.switchOn();
+					      localListenerSwitch.switchOn();
+					      
 					   } else {
-					      listenerSwitch.switchOn();
+					      localListenerSwitch.switchOn();
 					   }
 				   }
 			};
@@ -256,6 +271,7 @@ public class EmfHandler extends AbstractHandler {
 		return paths.length % 2 == 1;
 	}
 	
+	@SuppressWarnings("unchecked")
 	private void applyRemovePatch(EObject model, Operation patch) {
 		String path = patch.getPath();		
 		String[] paths = path.split("/");
@@ -265,9 +281,19 @@ public class EmfHandler extends AbstractHandler {
 			paths = path.split("/");
 		}
 		
-		EObject objToPatch = this.findObjToPatch(model, paths, 0);
+		EObject objToPatch = model;
 		
-		EcoreUtil.delete(objToPatch);
+		if (paths.length > 3) {
+			objToPatch = this.findObjToPatch(model, paths, 2);
+		}
+		
+		String featureName = paths[paths.length - 2];
+		int removeIndex = Integer.parseInt(paths[paths.length -1]);
+				
+		EStructuralFeature feature = objToPatch.eClass().getEStructuralFeature(featureName);
+		EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
+		list.remove(removeIndex);
+//		EcoreUtil.delete(objToPatch);
 	}
 	
 	private void applyReplacePatch(EObject model, Operation patch) {
