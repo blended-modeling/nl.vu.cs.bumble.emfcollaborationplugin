@@ -36,8 +36,8 @@ public class ChangeHandler {
 				String notificationClassName = notification.getClass().getSimpleName();
 
 				if (notificationClassName.contains("ENotification") ) {
-					System.out.println("local: Local listener activated: " + localListenerSwitch.isActivated());
-					System.out.println("local: Subscribe listener activated: " + subscribeListenerSwitch.isActivated());
+//					System.out.println("local: Local listener activated: " + localListenerSwitch.isActivated());
+//					System.out.println("local: Subscribe listener activated: " + subscribeListenerSwitch.isActivated());
 					
 					if(localListenerSwitch.isActivated()) {
 						localListenerSwitch.switchOff();
@@ -71,20 +71,26 @@ public class ChangeHandler {
 		patch.setOp(operation);
 		patch.setPath(path);
 		
-		if (operation == OP_SET || operation == OP_REMOVE) {
-			patch.setValue(notification.getNewStringValue());
-		} 
-		
-		if (operation == OP_ADD) {
-			patch.setValue(this.getPatchValue(notification));
+		if(!(notification.getNewStringValue() == null && operation == OP_SET)) {
+			if (operation == OP_REMOVE) {
+				patch.setValue(null);
+			}
+			
+			if (operation == OP_SET) {
+				patch.setValue(notification.getNewStringValue());
+			} 
+			
+			if (operation == OP_ADD) {
+				patch.setValue(this.getPatchValue(notification));
+			}
+			
+			Payload payload = new Payload();
+			payload.setData(patch);
+			
+			String payloadJson = converter.toJson(payload).get();
+			System.out.println("payload: " + payloadJson);
+			client.update(modelUri, payloadJson);
 		}
-		
-		Payload payload = new Payload();
-		payload.setData(patch);
-		
-		String payloadJson = converter.toJson(payload).get();
-		System.out.println("payload: " + payloadJson);
-		client.update(modelUri, payloadJson);
 	}
 	
 	private String getPatchOp(Notification notification) {
@@ -148,7 +154,6 @@ public class ChangeHandler {
 		
 		try {
 			newValueJson = converter.objectToJsonNode((EObject)notification.getNewValue());
-			
 		} catch (EncodingException e) {
 			e.printStackTrace();
 		}

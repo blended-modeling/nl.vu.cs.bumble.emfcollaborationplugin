@@ -331,9 +331,11 @@ public class EmfHandler extends AbstractHandler {
 		String[] paths = path.split("/");
 				
 		String featureName = paths[paths.length - 1];
-		EObject objToPatch = this.findObjToPatch(model, paths, 1);
 		
-		replaceFeatureValue(objToPatch, featureName, patch);
+		if (!featureName.equals("$ref")) {
+			EObject objToPatch = this.findObjToPatch(model, paths, 1);	
+			replaceFeatureValue(objToPatch, featureName, patch);
+		}	
 	}
 			
 	private void addModelToModelInventory(String modelUri, EObject model) {
