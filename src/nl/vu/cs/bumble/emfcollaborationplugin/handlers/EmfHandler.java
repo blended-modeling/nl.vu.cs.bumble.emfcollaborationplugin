@@ -302,17 +302,8 @@ public class EmfHandler extends AbstractHandler {
 		
 		EObject objToPatch = model;
 		
-		if (paths.length > 3) {
-			objToPatch = this.findObjToPatch(model, paths, 2);
-		}
-		
-		String featureName = paths[paths.length - 2];
-		int removeIndex = Integer.parseInt(paths[paths.length -1]);
-				
-		EStructuralFeature feature = objToPatch.eClass().getEStructuralFeature(featureName);
-		EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
-		list.remove(removeIndex);
-//		EcoreUtil.delete(objToPatch);
+		objToPatch = this.findObjToPatch(model, paths, 0);
+		EcoreUtil.delete(objToPatch);
 	}
 	
 	private void applyReplacePatch(EObject model, Operation patch) {
@@ -338,8 +329,6 @@ public class EmfHandler extends AbstractHandler {
 			}
 			
 			EObject objToPatch = this.findObjToPatch(model, paths, 1);
-			
-			System.out.println("featureName: "+ featureName);
 			objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
 		}
 	}
