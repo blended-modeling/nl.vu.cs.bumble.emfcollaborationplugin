@@ -13,6 +13,7 @@ import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
@@ -51,6 +52,7 @@ import org.eclipse.emfcloud.modelserver.client.SubscriptionListener;
 import org.eclipse.emfcloud.modelserver.client.SubscriptionOptions;
 import org.eclipse.emfcloud.modelserver.client.XmiToEObjectSubscriptionListener;
 import org.eclipse.emfcloud.modelserver.client.v2.ModelServerClientV2;
+import org.eclipse.emfcloud.modelserver.command.CCommandExecutionResult;
 import org.eclipse.emfcloud.modelserver.common.APIVersion;
 import org.eclipse.emfcloud.modelserver.common.codecs.DefaultJsonCodec;
 import org.eclipse.emfcloud.modelserver.common.codecs.EMFJsonConverter;
@@ -109,19 +111,6 @@ public class EmfHandler extends AbstractHandler {
 			
 			ChangeHandler recorder = new ChangeHandler(resource, client, modelUri, LOCAL_ECORE_PATH, localListenerSwitch, subscribeListenerSwitch);
 			
-//			XmiToEObjectSubscriptionListener listener = new XmiToEObjectSubscriptionListener() {
-//				public void onIncrementalUpdate(final EObject command) {
-//					JsonNode jsonCommand;
-//					try {
-//						jsonCommand = converter.objectToJsonNode(command);
-//						System.out.println("Incremental <JsonPatch> update from model server received:\n" +jsonCommand.toPrettyString());
-//					} catch (EncodingException e) {
-//						// TODO Auto-generated catch block
-//						e.printStackTrace();
-//					}
-//				}
-//			};
-			
 			SubscriptionListener listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 				   public void onIncrementalUpdate(final JsonPatch patch) {
 					   printResponse(
@@ -139,7 +128,7 @@ public class EmfHandler extends AbstractHandler {
 					   	  try {
 					   		executeJsonPatch(patch, editor);
 					   	  } catch(Exception e) {
-					   		updateLocalModel(modelUri, getRootModel(editor));
+//					   		updateLocalModel(modelUri, getRootModel(editor));
 					   		e.printStackTrace();
 					   	  }
 					     
@@ -279,9 +268,25 @@ public class EmfHandler extends AbstractHandler {
 		EStructuralFeature feature = objToPatch.eClass().getEStructuralFeature(featureName);
 		System.out.println("feature get: " + feature);
 				
-		EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
-		EObject newObj = this.createNewObject(model, patch);
-		list.add(newObj);
+		String featureType = "EReference";
+		
+		try {
+			JsonNode featureJson = converter.objectToJsonNode(feature);
+			featureType = featureJson.get("eClass").asText();
+			featureType = featureType.split("#//")[1];
+		} catch (EncodingException e) {
+			e.printStackTrace();
+		}
+				
+		if (featureType.equals("EReference")) {
+			EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
+			EObject newObj = this.createNewObject(model, patch);
+			list.add(newObj);
+		}
+		
+		if (featureType.equals("EAttribute")) {
+			replaceFeatureValue(objToPatch, featureName, patch);
+		}
 	}
 	
 	private boolean pathIncludesTargetIndex(String[] paths) {
@@ -306,31 +311,29 @@ public class EmfHandler extends AbstractHandler {
 		EcoreUtil.delete(objToPatch);
 	}
 	
-	private void applyReplacePatch(EObject model, Operation patch) {
-		String path = patch.getPath();		
-		String[] paths = path.split("/");
-				
-		String featureName = paths[paths.length - 1];
+	private void replaceFeatureValue(EObject objToPatch, String featureName, Operation patch) {
 		String newValue = "";
 		
 		if (!featureName.equals("$ref")) {
 			try {
 				JsonNode patchJson = converter.objectToJsonNode(patch);
 				JsonNode valueNode = patchJson.get("value");
-				
-//				String valueType = valueNode.get("eClass").asText();
 				newValue = valueNode.get("value").asText();
-				
-//				System.out.println("new value type: " + valueType);
-//				System.out.println("new value: " + newValue);
-				
 			} catch (EncodingException e) {
 				e.printStackTrace();
 			}
-			
-			EObject objToPatch = this.findObjToPatch(model, paths, 1);
 			objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
 		}
+	}
+	
+	private void applyReplacePatch(EObject model, Operation patch) {
+		String path = patch.getPath();		
+		String[] paths = path.split("/");
+				
+		String featureName = paths[paths.length - 1];
+		EObject objToPatch = this.findObjToPatch(model, paths, 1);
+		
+		replaceFeatureValue(objToPatch, featureName, patch);
 	}
 			
 	private void addModelToModelInventory(String modelUri, EObject model) {
