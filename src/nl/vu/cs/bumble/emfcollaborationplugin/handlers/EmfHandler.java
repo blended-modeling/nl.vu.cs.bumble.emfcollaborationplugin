@@ -387,7 +387,7 @@ public class EmfHandler extends AbstractHandler {
 	private void setServerEcorePath() {
 		String path = "";
 		String response;
-		response = this.getModelFromModelInventory("EcoreURI.xmi");
+		response = this.getModelFromModelInventory("TrafficSignals.statemachine");
 		
 		EObject obj = client.decode(response, FORMAT_JSON_V2).get();
 		JsonNode json;
