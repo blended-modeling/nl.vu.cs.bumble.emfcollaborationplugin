@@ -1,7 +1,11 @@
 package nl.vu.cs.bumble.emfcollaborationplugin;
 
+import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
+import org.eclipse.emfcloud.modelserver.client.v2.ModelServerClientV2;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
+
+import nl.vu.cs.bumble.emfcollaborationplugin.handlers.StateMachineConfiguration;
 
 /**
  * The activator class controls the plug-in life cycle
@@ -14,6 +18,8 @@ public class Activator extends AbstractUIPlugin {
 	// The shared instance
 	private static Activator plugin;
 	
+	private static ModelServerClient modelServerClient;
+	
 	/**
 	 * The constructor
 	 */
@@ -24,6 +30,8 @@ public class Activator extends AbstractUIPlugin {
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
 		plugin = this;
+		modelServerClient = new ModelServerClient("http://localhost:8081/api/v2/",
+	            new StateMachineConfiguration());
 	}
 
 	@Override
@@ -40,5 +48,13 @@ public class Activator extends AbstractUIPlugin {
 	public static Activator getDefault() {
 		return plugin;
 	}
+	
+	public static ModelServerClient getModelServerClient() {
+		return modelServerClient;
+	}
+	
+//	public static ModelServerClientV2 getTestClient() {
+//		return testClient;
+//	}
 
 }
