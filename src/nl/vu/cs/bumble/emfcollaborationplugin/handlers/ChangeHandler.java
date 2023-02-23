@@ -1,7 +1,9 @@
 package nl.vu.cs.bumble.emfcollaborationplugin.handlers;
 
 import org.eclipse.emf.common.notify.Notification;
+import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.change.util.ChangeRecorder;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
@@ -16,6 +18,7 @@ public class ChangeHandler {
 	private ModelServerClient client;
 	private String modelUri;
 	private String LOCAL_ECORE_PATH;
+	private EObject model;
 	private static final String OP_SET = "replace";
 	private static final String OP_REMOVE = "remove";
 	private static final String OP_ADD = "add";
@@ -29,6 +32,7 @@ public class ChangeHandler {
 		this.client = client;
 		this.modelUri = modelUri;
 		this.LOCAL_ECORE_PATH = path;
+		this.model = root.getContents().get(0);
 		
 		new ChangeRecorder(root) {
 			public void notifyChanged(Notification notification) {
@@ -53,12 +57,12 @@ public class ChangeHandler {
 	}
 	
 	private void handleModelChanges(Notification notification) {
-//		System.out.println("notification : " +notification);
+		System.out.println("notification : " +notification);
 		
 		try {
 			JsonNode newValueJson = converter.objectToJsonNode((EObject)notification.getNotifier());
 //			System.out.println("note: " + newValueJson.toPrettyString());
-			
+//			
 		} catch (EncodingException e) {
 			e.printStackTrace();
 		}
@@ -139,6 +143,26 @@ public class ChangeHandler {
 		if(op == OP_REMOVE) {
 			String position = Integer.toString(notification.getPosition());
 			path = path + "/" + position;
+		}
+		
+		/**
+		 * To add object at specific position, the position index has to be attached.
+		 * But if the newly added object is the last element in a particular feature,
+		 * the server only accept "-" instead of position index or simply without position.
+		 * Therefore, a counting on the existing number of elements is needed.
+		 * NOTICE: Only root model feature structure is get, if the meta-model allows adding child object,
+		 * this implementation fetch the wrong objects to count.
+		 * */
+		if(op == OP_ADD) {
+			
+			EStructuralFeature featureStructure = model.eClass().getEStructuralFeature(feature);
+			@SuppressWarnings("unchecked")
+			EList<EObject> list =(EList<EObject>)model.eGet(featureStructure);
+			
+			if(list.size() > notification.getPosition()) {
+				String position = Integer.toString(notification.getPosition());
+				path = path + "/" + position;
+			}
 		}
 		
 		return path;
