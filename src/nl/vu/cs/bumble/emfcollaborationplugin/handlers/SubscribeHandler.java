@@ -3,6 +3,7 @@ package nl.vu.cs.bumble.emfcollaborationplugin.handlers;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EClass;
@@ -15,6 +16,7 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
+import org.eclipse.emfcloud.modelserver.client.Response;
 import org.eclipse.emfcloud.modelserver.client.SubscriptionListener;
 import org.eclipse.emfcloud.modelserver.common.APIVersion;
 import org.eclipse.emfcloud.modelserver.common.codecs.EncodingException;
@@ -40,14 +42,14 @@ public class SubscribeHandler {
 			SubscribeListenerSwitch subscribeListenerSwitch ) {
 		
 		this.listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
-			
+			    
 			   public void onIncrementalUpdate(final JsonPatch patch) {			   
 				   
 				   // Make sure not to miss any incoming patches
 //				   if(!localListenerSwitch.isActivated() && !subscribeListenerSwitch.isActivated()) {
 //					   localListenerSwitch.switchOn();
 //					   subscribeListenerSwitch.switchOn();
-//				   } 
+//				   }
 				   
 				   if(localListenerSwitch.isActivated()) {
 				      localListenerSwitch.switchOff();
@@ -121,6 +123,13 @@ public class SubscribeHandler {
 	
 	@SuppressWarnings("unchecked")
 	private void applyRemovePatch(EObject model, Operation patch) {
+		try {
+			JsonNode patchJson = converter.objectToJsonNode(patch);
+			System.out.println("to patch json: "+patchJson.toPrettyString());
+			
+		} catch (EncodingException e) {
+			e.printStackTrace();
+		}
 		
 		String path = patch.getPath();		
 		String[] paths = path.split("/");
@@ -132,8 +141,13 @@ public class SubscribeHandler {
 		
 		EObject objToPatch = model;
 		
-		objToPatch = this.findObjToPatch(model, paths, 0);
-		EcoreUtil.delete(objToPatch);
+		// FIXME: Remove EAttribute does not working properly
+		try {
+			objToPatch = this.findObjToPatch(model, paths, 0);
+			EcoreUtil.delete(objToPatch);
+		} catch(Exception e) {
+			applyReplacePatch(model, patch);
+		}
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -172,8 +186,15 @@ public class SubscribeHandler {
 				
 		if (featureType.equals("EReference")) {
 			EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
+			
 			EObject newObj = this.createNewObject(model, patch);
-			list.add(newObj);
+			
+			// FIXME: if EReference is an existing Object, it does not work right now.
+			if(list == null) {
+				objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newObj);
+			} else {
+				list.add(newObj);
+			}
 		}
 		
 		if (featureType.equals("EAttribute")) {
@@ -188,7 +209,7 @@ public class SubscribeHandler {
 		// FIXME: sometimes the patch is converted to a JsonNode without value
 		try {
 			JsonNode patchJson = converter.objectToJsonNode(patch);
-			System.out.println("to patch json: "+patchJson.toPrettyString());
+//			System.out.println("to patch json: "+patchJson.toPrettyString());
 			JsonNode valueNode = patchJson.get("value");
 			className = valueNode.get("value").get("eClass").asText();
 		
@@ -268,16 +289,16 @@ public class SubscribeHandler {
 		
 		String newValue = "";
 		
-		if (!featureName.equals("$ref")) {
-			try {
-				JsonNode patchJson = converter.objectToJsonNode(patch);
-				JsonNode valueNode = patchJson.get("value");
+		try {
+			JsonNode patchJson = converter.objectToJsonNode(patch);
+			JsonNode valueNode = patchJson.get("value");
+			if(valueNode != null) {
 				newValue = valueNode.get("value").asText();
-			} catch (EncodingException e) {
-				e.printStackTrace();
-			}
-			objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
+			} 
+		} catch (EncodingException e) {
+			e.printStackTrace();
 		}
+		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
 	}
 	
 	/**
