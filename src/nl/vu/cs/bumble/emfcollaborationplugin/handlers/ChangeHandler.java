@@ -58,11 +58,10 @@ public class ChangeHandler {
 	
 	private void handleModelChanges(Notification notification) {
 		System.out.println("notification : " +notification);
-		
+		JsonNode notifierJson = null;
 		try {
-			JsonNode newValueJson = converter.objectToJsonNode((EObject)notification.getNotifier());
-//			System.out.println("note: " + newValueJson.toPrettyString());
-//			
+			notifierJson = converter.objectToJsonNode((EObject)notification.getNotifier());
+//			System.out.println("note: " + notifierJson.toPrettyString());
 		} catch (EncodingException e) {
 			e.printStackTrace();
 		}
@@ -81,7 +80,31 @@ public class ChangeHandler {
 			}
 			
 			if (operation == OP_SET) {
-				patch.setValue(notification.getNewStringValue());
+				JsonNode newFeature = null;
+				String featureType = "";
+				
+				try {
+					newFeature = converter.objectToJsonNode((EObject)notification.getFeature());
+					featureType = newFeature.get("eClass").asText().split("#//")[1];
+//					System.out.println("feature Type: " + featureType);
+					
+				} catch (EncodingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+				if (featureType.equals("EAttribute")) {
+					patch.setValue(notification.getNewStringValue());
+				}
+				if (featureType.equals("EReference")) {
+					String featureName = newFeature.get("name").asText();
+					String ref = notifierJson.get(featureName).get("$ref").asText();
+					ref = modelUri + "#" + ref;
+					
+					Value refValue = new Value();
+					refValue.setRef(ref);
+					patch.setValue(refValue);
+				}
 			} 
 			
 			if (operation == OP_ADD) {
