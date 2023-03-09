@@ -12,7 +12,7 @@ import org.eclipse.emfcloud.modelserver.common.codecs.EncodingException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-public class ChangeHandler {
+public class LocalChangeHandler {
 	
 	private ConvertHandler converter = ConvertHandler.getConverter();
 	private ModelServerClient client;
@@ -24,7 +24,7 @@ public class ChangeHandler {
 	private static final String OP_ADD = "add";
 	private static final String OP_UNKNOWN = "unknown";
 	
-	public ChangeHandler(Resource root, ModelServerClient client, 
+	public LocalChangeHandler(Resource root, ModelServerClient client, 
 			String modelUri, 
 			String path, 
 			LocalChangeListenerSwitch localListenerSwitch, 
