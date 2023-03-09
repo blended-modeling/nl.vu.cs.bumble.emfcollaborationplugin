@@ -196,7 +196,7 @@ public class SubscribeHandler {
 			e.printStackTrace();
 		}
 		
-		className = this.convertEClassTypeToLocal(className);
+//		className = this.convertEClassTypeToLocal(className);
 		
 		// FIXME: can be incorrect 
 		className = className.split("#//")[1];
@@ -326,11 +326,5 @@ public class SubscribeHandler {
 	private EObject getRootModel(IEditorPart editor) {
 		
 		return (EObject) ((IEditingDomainProvider) editor).getEditingDomain().getResourceSet().getResources().get(0).getContents().get(0);
-	}
-	
-	private String convertEClassTypeToLocal(String model) {
-		
-		String converted = model.replace(SERVER_ECORE_PATH, LOCAL_ECORE_PATH);	
-		return converted;
 	}
 }
