@@ -40,6 +40,7 @@ public class SubscribeHandler {
 			SubscribeListenerSwitch subscribeListenerSwitch ) {
 		
 		this.listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
+			
 			   public void onIncrementalUpdate(final JsonPatch patch) {
 				   printResponse(
 					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
@@ -74,6 +75,7 @@ public class SubscribeHandler {
 	}
 	
 	private void executeJsonPatch(JsonPatch patches, IEditorPart editor) throws Exception {		
+		
 		EObject model = getRootModel(editor);
 		
 		for(int i = 0; i < patches.getPatch().size(); i++) {
@@ -101,6 +103,7 @@ public class SubscribeHandler {
 	}
 	
 	private void applyReplacePatch(EObject model, Operation patch) {
+		
 		String path = patch.getPath();		
 		String[] paths = path.split("/");
 				
@@ -117,6 +120,7 @@ public class SubscribeHandler {
 	
 	@SuppressWarnings("unchecked")
 	private void applyRemovePatch(EObject model, Operation patch) {
+		
 		String path = patch.getPath();		
 		String[] paths = path.split("/");
 		
@@ -133,6 +137,7 @@ public class SubscribeHandler {
 	
 	@SuppressWarnings("unchecked")
 	private void applyAddPatch(EObject model, Operation patch) {
+		
 		String path = patch.getPath();	
 		
 		if(!path.contains("-")) {
@@ -176,6 +181,7 @@ public class SubscribeHandler {
 	}
 	
 	private EObject createNewObject(EObject model, Operation patch) {
+		
 		String className = "";
 		
 		// FIXME: sometimes the patch is converted to a JsonNode without value
@@ -212,6 +218,7 @@ public class SubscribeHandler {
 	}
 	
 	private EObject findObjToPatch(EObject model, String[] paths, int len) {	
+		
 		EObject objToPatch = model.eContents().get(0);
 		String rootClassName = paths[1];
 		int rootPosition = Integer.parseInt(paths[2]);
@@ -257,6 +264,7 @@ public class SubscribeHandler {
 
 	
 	private void replaceFeatureValue(EObject objToPatch, String featureName, Operation patch) {
+		
 		String newValue = "";
 		
 		if (!featureName.equals("$ref")) {
@@ -281,6 +289,7 @@ public class SubscribeHandler {
 	 * featureName = "inputs"
 	 **/
 	private void replaceReferenceValue(EObject model, Operation patch, String[] paths ) {
+		
 		JsonNode patchJson = null;
 		try {
 			patchJson = converter.objectToJsonNode(patch);			
@@ -306,10 +315,12 @@ public class SubscribeHandler {
 	}
 	
 	private EObject getRootModel(IEditorPart editor) {
+		
 		return (EObject) ((IEditingDomainProvider) editor).getEditingDomain().getResourceSet().getResources().get(0).getContents().get(0);
 	}
 	
 	private String convertEClassTypeToLocal(String model) {
+		
 		String converted = model.replace(SERVER_ECORE_PATH, LOCAL_ECORE_PATH);	
 		return converted;
 	}

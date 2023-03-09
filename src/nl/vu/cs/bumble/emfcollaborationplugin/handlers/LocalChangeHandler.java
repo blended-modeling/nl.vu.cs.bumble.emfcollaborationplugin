@@ -35,7 +35,9 @@ public class LocalChangeHandler {
 		this.model = root.getContents().get(0);
 		
 		new ChangeRecorder(root) {
+			
 			public void notifyChanged(Notification notification) {
+				
 				super.notifyChanged(notification);
 				String notificationClassName = notification.getClass().getSimpleName();
 
@@ -57,6 +59,7 @@ public class LocalChangeHandler {
 	}
 	
 	private void handleModelChanges(Notification notification) {
+		
 		System.out.println("notification : " +notification);
 		JsonNode notifierJson = null;
 		try {
@@ -121,6 +124,7 @@ public class LocalChangeHandler {
 	}
 	
 	private String getPatchOp(Notification notification) {
+		
 		String op = OP_UNKNOWN;
 		int type = notification.getEventType();
 		
@@ -140,6 +144,7 @@ public class LocalChangeHandler {
 	}
 	
 	private String getPatchPath(Notification notification, String op) {
+		
 		String path = "";
 		
 		EObject notifier = (EObject) notification.getNotifier();
@@ -192,6 +197,7 @@ public class LocalChangeHandler {
 	}
 	
 	private Value getPatchValue(Notification notification) {
+		
 		Value value = new Value();
 		
 		JsonNode featureJson = null;
