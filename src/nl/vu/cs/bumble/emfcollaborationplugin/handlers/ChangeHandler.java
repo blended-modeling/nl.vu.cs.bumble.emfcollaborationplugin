@@ -61,7 +61,7 @@ public class ChangeHandler {
 		JsonNode notifierJson = null;
 		try {
 			notifierJson = converter.objectToJsonNode((EObject)notification.getNotifier());
-			System.out.println("note: " + notifierJson.toPrettyString());
+//			System.out.println("note: " + notifierJson.toPrettyString());
 		} catch (EncodingException e) {
 			e.printStackTrace();
 		}
@@ -86,7 +86,7 @@ public class ChangeHandler {
 				try {
 					newFeature = converter.objectToJsonNode((EObject)notification.getFeature());
 					featureType = newFeature.get("eClass").asText().split("#//")[1];
-					System.out.println("feature Type: " + featureType);
+//					System.out.println("feature Type: " + featureType);
 					
 				} catch (EncodingException e) {
 					// TODO Auto-generated catch block

@@ -35,6 +35,7 @@ import org.eclipse.emf.ecore.EClassifier;
 import org.eclipse.emf.ecore.EFactory;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
+import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.EcoreFactory;
 import org.eclipse.emf.ecore.EcorePackage;
@@ -172,10 +173,85 @@ public class EmfHandler extends AbstractHandler {
 		
 	}
 	
+	private void applyReplacePatch(EObject model, Operation patch) {
+		String path = patch.getPath();		
+		String[] paths = path.split("/");
+				
+		String featureName = paths[paths.length - 1];
+		
+		if (!featureName.equals("$ref")) {
+			EObject objToPatch = this.findObjToPatch(model, paths, 1);	
+			replaceFeatureValue(objToPatch, featureName, patch);
+		}
+		if (featureName.equals("$ref")) {
+			replaceReferenceValue(model, patch, paths);
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void applyRemovePatch(EObject model, Operation patch) {
+		String path = patch.getPath();		
+		String[] paths = path.split("/");
+		
+		if(!pathIncludesTargetIndex(paths)) {
+			path = path+ "/0";
+			paths = path.split("/");
+		}
+		
+		EObject objToPatch = model;
+		
+		objToPatch = this.findObjToPatch(model, paths, 0);
+		EcoreUtil.delete(objToPatch);
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void applyAddPatch(EObject model, Operation patch) {
+		String path = patch.getPath();	
+		
+		if(!path.contains("-")) {
+			path = path + "/-";
+		}
+		
+		String[] paths = path.split("/");
+		
+		EObject objToPatch = model;
+		String featureName = "";
+		
+		
+		if (!paths[2].equals("-")) {
+			objToPatch = this.findObjToPatch(model, paths, 2);
+		}
+		
+		// path: /input/-
+		featureName = paths[paths.length - 2];
+				
+		EStructuralFeature feature = objToPatch.eClass().getEStructuralFeature(featureName);
+				
+		String featureType = "EReference";
+		
+		try {
+			JsonNode featureJson = converter.objectToJsonNode(feature);
+			featureType = featureJson.get("eClass").asText();
+			featureType = featureType.split("#//")[1];
+		} catch (EncodingException e) {
+			e.printStackTrace();
+		}
+				
+		if (featureType.equals("EReference")) {
+			EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
+			EObject newObj = this.createNewObject(model, patch);
+			list.add(newObj);
+		}
+		
+		if (featureType.equals("EAttribute")) {
+			replaceFeatureValue(objToPatch, featureName, patch);
+		}
+	}
+	
 	private EObject createNewObject(EObject model, Operation patch) {
 		String className = "";
 		
-		//TODO: sometimes the patch is converted to a JsonNode without value
+		// FIXME: sometimes the patch is converted to a JsonNode without value
 		try {
 			JsonNode patchJson = converter.objectToJsonNode(patch);
 			System.out.println("to patch json: "+patchJson.toPrettyString());
@@ -188,7 +264,7 @@ public class EmfHandler extends AbstractHandler {
 		
 		className = this.convertEClassTypeToLocal(className);
 		
-		// TODO: can be incorrect 
+		// FIXME: can be incorrect 
 		className = className.split("#//")[1];
 		
 		System.out.println("class name : " + className);
@@ -243,51 +319,7 @@ public class EmfHandler extends AbstractHandler {
 		return objToPatch;
 	}
 		
-	@SuppressWarnings("unchecked")
-	private void applyAddPatch(EObject model, Operation patch) {
-		String path = patch.getPath();	
-		
-		if(!path.contains("-")) {
-			path = path + "/-";
-		}
-		
-		System.out.println("path: " + path);
-		String[] paths = path.split("/");
-		
-		EObject objToPatch = model;
-		String featureName = "";
-		
-		
-		if (!paths[2].equals("-")) {
-			objToPatch = this.findObjToPatch(model, paths, 2);
-		}
-		
-		// path: /input/-
-		featureName = paths[paths.length - 2];
-				
-		EStructuralFeature feature = objToPatch.eClass().getEStructuralFeature(featureName);
-		System.out.println("feature get: " + feature);
-				
-		String featureType = "EReference";
-		
-		try {
-			JsonNode featureJson = converter.objectToJsonNode(feature);
-			featureType = featureJson.get("eClass").asText();
-			featureType = featureType.split("#//")[1];
-		} catch (EncodingException e) {
-			e.printStackTrace();
-		}
-				
-		if (featureType.equals("EReference")) {
-			EList<EObject> list =(EList<EObject>)objToPatch.eGet(feature);
-			EObject newObj = this.createNewObject(model, patch);
-			list.add(newObj);
-		}
-		
-		if (featureType.equals("EAttribute")) {
-			replaceFeatureValue(objToPatch, featureName, patch);
-		}
-	}
+	
 	
 	private boolean pathIncludesTargetIndex(String[] paths) {
 		// path: /input => paths.length = 2
@@ -295,21 +327,7 @@ public class EmfHandler extends AbstractHandler {
 		return paths.length % 2 == 1;
 	}
 	
-	@SuppressWarnings("unchecked")
-	private void applyRemovePatch(EObject model, Operation patch) {
-		String path = patch.getPath();		
-		String[] paths = path.split("/");
-		
-		if(!pathIncludesTargetIndex(paths)) {
-			path = path+ "/0";
-			paths = path.split("/");
-		}
-		
-		EObject objToPatch = model;
-		
-		objToPatch = this.findObjToPatch(model, paths, 0);
-		EcoreUtil.delete(objToPatch);
-	}
+
 	
 	private void replaceFeatureValue(EObject objToPatch, String featureName, Operation patch) {
 		String newValue = "";
@@ -326,17 +344,41 @@ public class EmfHandler extends AbstractHandler {
 		}
 	}
 	
-	private void applyReplacePatch(EObject model, Operation patch) {
-		String path = patch.getPath();		
-		String[] paths = path.split("/");
-				
-		String featureName = paths[paths.length - 1];
+	/**
+	 * Example Patch
+	 * op: replace
+	 * path: /transitions/0/input/$ref
+	 * value: //@inputs.0
+	 * 
+	 * refName = "input"
+	 * featureName = "inputs"
+	 **/
+	private void replaceReferenceValue(EObject model, Operation patch, String[] paths ) {
+		JsonNode patchJson = null;
+		try {
+			patchJson = converter.objectToJsonNode(patch);			
+		} catch (EncodingException e) {
+			e.printStackTrace();
+		}
 		
-		if (!featureName.equals("$ref")) {
-			EObject objToPatch = this.findObjToPatch(model, paths, 1);	
-			replaceFeatureValue(objToPatch, featureName, patch);
-		}	
+		String value = patchJson.get("value").get("value").asText();
+		
+		String featureName = value.split("[.]")[0].split("@")[1];
+		int position = Integer.parseInt(value.split("[.]")[1]);
+		
+		paths = Arrays.copyOfRange(paths, 0, paths.length - 1);
+		String refName = paths[paths.length - 1];
+		
+		EObject objToPatch = this.findObjToPatch(model, paths, 1);
+		
+		
+		//FIXME: Only work for one layer model.
+		EStructuralFeature feature = model.eClass().getEStructuralFeature(featureName);
+		EList<EObject> list =(EList<EObject>)model.eGet(feature);
+		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(refName), list.get(position));
 	}
+	
+
 			
 	private void addModelToModelInventory(String modelUri, EObject model) {
 		String payload = this.convertEClassTypeToWorkspace(model);
