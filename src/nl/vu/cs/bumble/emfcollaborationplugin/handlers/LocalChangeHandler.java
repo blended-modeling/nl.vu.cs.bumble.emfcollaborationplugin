@@ -42,16 +42,16 @@ public class LocalChangeHandler {
 				String notificationClassName = notification.getClass().getSimpleName();
 
 				if (notificationClassName.contains("ENotification") ) {
-//					System.out.println("local: Local listener activated: " + localListenerSwitch.isActivated());
-//					System.out.println("local: Subscribe listener activated: " + subscribeListenerSwitch.isActivated());
-					
 					if(localListenerSwitch.isActivated()) {
 						localListenerSwitch.switchOff();
 						handleModelChanges(notification);
-					} else {
-						if (subscribeListenerSwitch.isActivated()) {
-							localListenerSwitch.switchOn();
-						}
+						
+						// FIXME: This is not secure. 
+						// Improper patch will cause the close of subscriber switch forever 
+						subscribeListenerSwitch.switchOff();
+
+					} else if (subscribeListenerSwitch.isActivated()){
+						localListenerSwitch.switchOn();
 					}
 				}
 			}
@@ -77,50 +77,52 @@ public class LocalChangeHandler {
 		patch.setOp(operation);
 		patch.setPath(path);
 		
-		if(!(notification.getNewStringValue() == null && operation == OP_SET)) {
-			if (operation == OP_REMOVE) {
-				patch.setValue(null);
-			}
-			
-			if (operation == OP_SET) {
-				JsonNode newFeature = null;
-				String featureType = "";
-				
-				try {
-					newFeature = converter.objectToJsonNode((EObject)notification.getFeature());
-					featureType = newFeature.get("eClass").asText().split("#//")[1];
-//					System.out.println("feature Type: " + featureType);
-					
-				} catch (EncodingException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				
-				if (featureType.equals("EAttribute")) {
-					patch.setValue(notification.getNewStringValue());
-				}
-				if (featureType.equals("EReference")) {
-					String featureName = newFeature.get("name").asText();
-					String ref = notifierJson.get(featureName).get("$ref").asText();
-					ref = modelUri + "#" + ref;
-					
-					Value refValue = new Value();
-					refValue.setRef(ref);
-					patch.setValue(refValue);
-				}
-			} 
-			
-			if (operation == OP_ADD) {
-				patch.setValue(this.getPatchValue(notification));
-			}
-			
-			Payload payload = new Payload();
-			payload.setData(patch);
-			
-			String payloadJson = converter.toJson(payload).get();
-			System.out.println("payload: " + payloadJson);
-			client.update(modelUri, payloadJson);
+		if (operation == OP_REMOVE) {
+			patch.setValue(null);
 		}
+		
+		if (operation == OP_ADD) {
+			patch.setValue(this.getPatchValue(notification));
+		}
+		
+		if (operation == OP_SET) {
+			JsonNode newFeature = null;
+			String featureType = "";
+			
+			try {
+				newFeature = converter.objectToJsonNode((EObject)notification.getFeature());
+				featureType = newFeature.get("eClass").asText().split("#//")[1];
+				
+			} catch (EncodingException e) {
+				e.printStackTrace();
+			}
+			
+			if (featureType.equals("EAttribute")) {
+				patch.setValue(notification.getNewStringValue());
+			}
+			if (featureType.equals("EReference")) {
+				String featureName = newFeature.get("name").asText();
+				String ref = modelUri + "#";
+				
+				if(notification.getNewStringValue() != null) {
+					ref = ref + notifierJson.get(featureName).get("$ref").asText();
+				}
+				
+				System.out.println("ref : " + ref);
+
+				Value refValue = new Value();
+				refValue.setRef(ref);
+				patch.setValue(refValue);
+			}
+		} 
+		
+		Payload payload = new Payload();
+		payload.setData(patch);
+		
+		String payloadJson = converter.toJson(payload).get();
+		System.out.println("payload: " + payloadJson);
+		
+		client.update(modelUri, payloadJson);	
 	}
 	
 	private String getPatchOp(Notification notification) {
@@ -149,8 +151,6 @@ public class LocalChangeHandler {
 		
 		EObject notifier = (EObject) notification.getNotifier();
 		String uri = EcoreUtil.getURI(notifier).toString();
-		
-//		System.out.println("URI:" + uri);
 		
 		if(uri.split("#/").length > 1) {
 			path = uri.split("#/")[1].replace("@", "").replace(".", "/");

@@ -41,18 +41,19 @@ public class SubscribeHandler {
 		
 		this.listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
 			
-			   public void onIncrementalUpdate(final JsonPatch patch) {
-				   printResponse(
-					         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
+			   public void onIncrementalUpdate(final JsonPatch patch) {			   
 				   
-				   if(!localListenerSwitch.isActivated() && !subscribeListenerSwitch.isActivated()) {
-					   localListenerSwitch.switchOn();
-					   subscribeListenerSwitch.switchOn();
-				   }
+				   // Make sure not to miss any incoming patches
+//				   if(!localListenerSwitch.isActivated() && !subscribeListenerSwitch.isActivated()) {
+//					   localListenerSwitch.switchOn();
+//					   subscribeListenerSwitch.switchOn();
+//				   } 
 				   
 				   if(localListenerSwitch.isActivated()) {
 				      localListenerSwitch.switchOff();
 				      subscribeListenerSwitch.switchOff();
+				      printResponse(
+						         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
 				      
 				   	  try {
 				   		executeJsonPatch(patch, editor);
@@ -288,6 +289,7 @@ public class SubscribeHandler {
 	 * refName = "input"
 	 * featureName = "inputs"
 	 **/
+	@SuppressWarnings("unchecked")
 	private void replaceReferenceValue(EObject model, Operation patch, String[] paths ) {
 		
 		JsonNode patchJson = null;
@@ -299,19 +301,26 @@ public class SubscribeHandler {
 		
 		String value = patchJson.get("value").get("value").asText();
 		
-		String featureName = value.split("[.]")[0].split("@")[1];
-		int position = Integer.parseInt(value.split("[.]")[1]);
-		
 		paths = Arrays.copyOfRange(paths, 0, paths.length - 1);
 		String refName = paths[paths.length - 1];
 		
 		EObject objToPatch = this.findObjToPatch(model, paths, 1);
 		
-		
-		//FIXME: Only work for one layer model.
-		EStructuralFeature feature = model.eClass().getEStructuralFeature(featureName);
-		EList<EObject> list =(EList<EObject>)model.eGet(feature);
-		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(refName), list.get(position));
+		// The following value is the same as an empty value
+		// value: $command.exec.res#//@changeDescription/@objectsToAttach.0
+		if(!value.contains("$command.exec.res")) {
+			
+			String featureName = value.split("[.]")[0].split("@")[1];
+			int position = Integer.parseInt(value.split("[.]")[1]);
+			
+			//FIXME: Only work for one layer model.
+			EStructuralFeature feature = model.eClass().getEStructuralFeature(featureName);
+			EList<EObject> list =(EList<EObject>)model.eGet(feature);
+			objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(refName), list.get(position));
+			
+		} else {
+			objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(refName), null);
+		} 
 	}
 	
 	private EObject getRootModel(IEditorPart editor) {
