@@ -8,23 +8,27 @@ import org.eclipse.emf.ecore.change.util.ChangeRecorder;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
+import org.eclipse.emfcloud.modelserver.client.Response;
 import org.eclipse.emfcloud.modelserver.common.codecs.EncodingException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-public class ChangeHandler {
+public class LocalChangeHandler {
 	
 	private ConvertHandler converter = ConvertHandler.getConverter();
 	private ModelServerClient client;
 	private String modelUri;
 	private String LOCAL_ECORE_PATH;
 	private EObject model;
+	private static SubscribeListenerSwitch subscribeListenerSwitch;
+	private static final Integer STATUS_OK = 200;
 	private static final String OP_SET = "replace";
 	private static final String OP_REMOVE = "remove";
 	private static final String OP_ADD = "add";
 	private static final String OP_UNKNOWN = "unknown";
 	
-	public ChangeHandler(Resource root, ModelServerClient client, 
+	
+	public LocalChangeHandler(Resource root, ModelServerClient client, 
 			String modelUri, 
 			String path, 
 			LocalChangeListenerSwitch localListenerSwitch, 
@@ -33,23 +37,27 @@ public class ChangeHandler {
 		this.modelUri = modelUri;
 		this.LOCAL_ECORE_PATH = path;
 		this.model = root.getContents().get(0);
+		LocalChangeHandler.subscribeListenerSwitch = subscribeListenerSwitch;
 		
 		new ChangeRecorder(root) {
+			
 			public void notifyChanged(Notification notification) {
+				
 				super.notifyChanged(notification);
 				String notificationClassName = notification.getClass().getSimpleName();
 
 				if (notificationClassName.contains("ENotification") ) {
-//					System.out.println("local: Local listener activated: " + localListenerSwitch.isActivated());
-//					System.out.println("local: Subscribe listener activated: " + subscribeListenerSwitch.isActivated());
-					
 					if(localListenerSwitch.isActivated()) {
 						localListenerSwitch.switchOff();
+						
+						// FIXME: This is not secure. 
+						// Improper patch will cause the close of subscriber switch forever 
+						subscribeListenerSwitch.switchOff();
+						
 						handleModelChanges(notification);
-					} else {
-						if (subscribeListenerSwitch.isActivated()) {
-							localListenerSwitch.switchOn();
-						}
+
+					} else if (subscribeListenerSwitch.isActivated()){
+						localListenerSwitch.switchOn();
 					}
 				}
 			}
@@ -57,6 +65,7 @@ public class ChangeHandler {
 	}
 	
 	private void handleModelChanges(Notification notification) {
+		
 		System.out.println("notification : " +notification);
 		JsonNode notifierJson = null;
 		try {
@@ -69,58 +78,80 @@ public class ChangeHandler {
 		String operation = this.getPatchOp(notification);
 		String path = this.getPatchPath(notification, operation);
 		
-		Patch patch = new Patch();
+		Payload payload = new Payload();
 		
-		patch.setOp(operation);
-		patch.setPath(path);
-		
-		if(!(notification.getNewStringValue() == null && operation == OP_SET)) {
-			if (operation == OP_REMOVE) {
-				patch.setValue(null);
-			}
+		if (operation == OP_REMOVE) {
+			PatchRemove patch = new PatchRemove();
 			
-			if (operation == OP_SET) {
-				JsonNode newFeature = null;
-				String featureType = "";
-				
-				try {
-					newFeature = converter.objectToJsonNode((EObject)notification.getFeature());
-					featureType = newFeature.get("eClass").asText().split("#//")[1];
-//					System.out.println("feature Type: " + featureType);
-					
-				} catch (EncodingException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				
-				if (featureType.equals("EAttribute")) {
-					patch.setValue(notification.getNewStringValue());
-				}
-				if (featureType.equals("EReference")) {
-					String featureName = newFeature.get("name").asText();
-					String ref = notifierJson.get(featureName).get("$ref").asText();
-					ref = modelUri + "#" + ref;
-					
-					Value refValue = new Value();
-					refValue.setRef(ref);
-					patch.setValue(refValue);
-				}
-			} 
-			
-			if (operation == OP_ADD) {
-				patch.setValue(this.getPatchValue(notification));
-			}
-			
-			Payload payload = new Payload();
+			patch.setOp(operation);
+			patch.setPath(path);
+
 			payload.setData(patch);
-			
-			String payloadJson = converter.toJson(payload).get();
-			System.out.println("payload: " + payloadJson);
-			client.update(modelUri, payloadJson);
 		}
+		
+		if (operation == OP_ADD) {
+			Patch patch = new Patch();
+			
+			patch.setOp(operation);
+			patch.setPath(path);
+			patch.setValue(this.getPatchValue(notification));
+			
+			payload.setData(patch);
+		}
+		
+		if (operation == OP_SET) {
+			JsonNode newFeature = null;
+			String featureType = "";
+			
+			Patch patch = new Patch();
+			
+			patch.setOp(operation);
+			patch.setPath(path);
+			
+			try {
+				newFeature = converter.objectToJsonNode((EObject)notification.getFeature());
+				featureType = newFeature.get("eClass").asText().split("#//")[1];
+				
+			} catch (EncodingException e) {
+				e.printStackTrace();
+			}
+			
+			if (featureType.equals("EAttribute")) {
+				patch.setValue(notification.getNewStringValue());
+			}
+			
+			if (featureType.equals("EReference")) {
+				String featureName = newFeature.get("name").asText();
+				String ref = modelUri + "#";
+				
+				if(notification.getNewStringValue() != null) {
+					ref = ref + notifierJson.get(featureName).get("$ref").asText();
+				}
+				
+				System.out.println("ref : " + ref);
+
+				Value refValue = new Value();
+				refValue.setRef(ref);
+				patch.setValue(refValue);
+			}
+			payload.setData(patch);
+		} 
+		
+
+		String payloadJson = converter.toJson(payload).get();
+		System.out.println("Patch SEND: " + payloadJson);
+		
+		Response<String> response = client.update(modelUri, payloadJson).join();
+		System.out.println("RESPONSE STATUS: " + response.getStatusCode());
+		
+//		if(!response.getStatusCode().equals(STATUS_OK) ) {
+//			System.out.println("response not ok code: " + response.getStatusCode());
+//			subscribeListenerSwitch.switchOn();
+//		}
 	}
 	
 	private String getPatchOp(Notification notification) {
+		
 		String op = OP_UNKNOWN;
 		int type = notification.getEventType();
 		
@@ -140,12 +171,11 @@ public class ChangeHandler {
 	}
 	
 	private String getPatchPath(Notification notification, String op) {
+		
 		String path = "";
 		
 		EObject notifier = (EObject) notification.getNotifier();
 		String uri = EcoreUtil.getURI(notifier).toString();
-		
-//		System.out.println("URI:" + uri);
 		
 		if(uri.split("#/").length > 1) {
 			path = uri.split("#/")[1].replace("@", "").replace(".", "/");
@@ -191,7 +221,9 @@ public class ChangeHandler {
 		return path;
 	}
 	
+	// FIXME: Need to check if exists any situations require both type and ref
 	private Value getPatchValue(Notification notification) {
+		
 		Value value = new Value();
 		
 		JsonNode featureJson = null;
