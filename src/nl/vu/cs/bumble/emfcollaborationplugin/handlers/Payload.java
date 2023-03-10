@@ -1,7 +1,7 @@
 package nl.vu.cs.bumble.emfcollaborationplugin.handlers;
 
-public class Payload {
-	private Patch data;
+public class Payload<T> {
+	private T data;
 	private static final String PATCH_TYPE = "modelserver.patch";
 	
 	public Payload() {
@@ -11,11 +11,11 @@ public class Payload {
 		return Payload.PATCH_TYPE;
 	}
 	
-	public Patch getData() {
+	public T getData() {
 		return this.data;
 	}
 	
-	public void setData(Patch patch) {
+	public void setData(T patch) {
 		this.data = patch;
 	}
 }

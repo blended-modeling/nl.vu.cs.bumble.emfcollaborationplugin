@@ -78,22 +78,35 @@ public class LocalChangeHandler {
 		String operation = this.getPatchOp(notification);
 		String path = this.getPatchPath(notification, operation);
 		
-		Patch patch = new Patch();
-		
-		patch.setOp(operation);
-		patch.setPath(path);
+		Payload payload = new Payload();
 		
 		if (operation == OP_REMOVE) {
-			patch.setValue(null);
+			PatchRemove patch = new PatchRemove();
+			
+			patch.setOp(operation);
+			patch.setPath(path);
+
+			payload.setData(patch);
 		}
 		
 		if (operation == OP_ADD) {
+			Patch patch = new Patch();
+			
+			patch.setOp(operation);
+			patch.setPath(path);
 			patch.setValue(this.getPatchValue(notification));
+			
+			payload.setData(patch);
 		}
 		
 		if (operation == OP_SET) {
 			JsonNode newFeature = null;
 			String featureType = "";
+			
+			Patch patch = new Patch();
+			
+			patch.setOp(operation);
+			patch.setPath(path);
 			
 			try {
 				newFeature = converter.objectToJsonNode((EObject)notification.getFeature());
@@ -106,6 +119,7 @@ public class LocalChangeHandler {
 			if (featureType.equals("EAttribute")) {
 				patch.setValue(notification.getNewStringValue());
 			}
+			
 			if (featureType.equals("EReference")) {
 				String featureName = newFeature.get("name").asText();
 				String ref = modelUri + "#";
@@ -120,15 +134,15 @@ public class LocalChangeHandler {
 				refValue.setRef(ref);
 				patch.setValue(refValue);
 			}
+			payload.setData(patch);
 		} 
 		
-		Payload payload = new Payload();
-		payload.setData(patch);
-		
+
 		String payloadJson = converter.toJson(payload).get();
-		System.out.println("payload: " + payloadJson);
+		System.out.println("Patch SEND: " + payloadJson);
 		
 		Response<String> response = client.update(modelUri, payloadJson).join();
+		System.out.println("RESPONSE STATUS: " + response.getStatusCode());
 		
 //		if(!response.getStatusCode().equals(STATUS_OK) ) {
 //			System.out.println("response not ok code: " + response.getStatusCode());
@@ -207,6 +221,7 @@ public class LocalChangeHandler {
 		return path;
 	}
 	
+	// FIXME: Need to check if exists any situations require both type and ref
 	private Value getPatchValue(Notification notification) {
 		
 		Value value = new Value();

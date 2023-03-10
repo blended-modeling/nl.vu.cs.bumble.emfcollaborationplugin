@@ -114,7 +114,12 @@ public class SubscribeHandler {
 		
 		if (!featureName.equals("$ref")) {
 			EObject objToPatch = this.findObjToPatch(model, paths, 1);	
-			replaceFeatureValue(objToPatch, featureName, patch);
+			try {
+				replaceFeatureValue(objToPatch, featureName, patch);
+			} catch (EncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		if (featureName.equals("$ref")) {
 			replaceReferenceValue(model, patch, paths);
@@ -198,7 +203,12 @@ public class SubscribeHandler {
 		}
 		
 		if (featureType.equals("EAttribute")) {
-			replaceFeatureValue(objToPatch, featureName, patch);
+			try {
+				replaceFeatureValue(objToPatch, featureName, patch);
+			} catch (EncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -285,7 +295,7 @@ public class SubscribeHandler {
 	
 
 	
-	private void replaceFeatureValue(EObject objToPatch, String featureName, Operation patch) {
+	private void replaceFeatureValue(EObject objToPatch, String featureName, Operation patch) throws EncodingException {
 		
 		String newValue = "";
 		
@@ -298,7 +308,11 @@ public class SubscribeHandler {
 		} catch (EncodingException e) {
 			e.printStackTrace();
 		}
-		objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
+		
+		EStructuralFeature f =  objToPatch.eClass().getEStructuralFeature(featureName);
+		if (f != null) {
+			objToPatch.eSet(objToPatch.eClass().getEStructuralFeature(featureName), newValue);
+		}
 	}
 	
 	/**
