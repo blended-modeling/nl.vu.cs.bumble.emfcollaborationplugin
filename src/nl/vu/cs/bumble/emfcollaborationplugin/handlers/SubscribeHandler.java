@@ -30,18 +30,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 public class SubscribeHandler {
 	private static final APIVersion API_VERSION = APIVersion.API_V2;
-	private String SERVER_ECORE_PATH;
-	private String LOCAL_ECORE_PATH;
+	public static final String ANSI_RESET = "\u001B[0m";
+	public static final String ANSI_BLUE = "\033[1;34m";
+
 	private ConvertHandler converter = ConvertHandler.getConverter();
 	private SubscriptionListener listener;
+	private ModelHandler model;
 
-	public SubscribeHandler(String modelUri, IEditorPart editor,
-			String SERVER_ECORE_PATH,
-			String LOCAL_ECORE_PATH,
+	public SubscribeHandler(ModelHandler model, IEditorPart editor,
 			LocalChangeListenerSwitch localListenerSwitch, 
 			SubscribeListenerSwitch subscribeListenerSwitch ) {
 		
-		this.listener = new ExampleEObjectSubscriptionListener(modelUri, API_VERSION) {
+		this.model = model;
+		
+		this.listener = new ExampleEObjectSubscriptionListener(model.getModelUri(), API_VERSION) {
 			    
 			   public void onIncrementalUpdate(final JsonPatch patch) {			   
 				   
@@ -55,7 +57,7 @@ public class SubscribeHandler {
 				      localListenerSwitch.switchOff();
 				      subscribeListenerSwitch.switchOff();
 				      printResponse(
-						         "Incremental <JsonPatch> update from model server received:\n" + PrintUtil.toPrettyString(patch));	
+						         "Incremental <JsonPatch> update from model server received:\n" + ANSI_BLUE+ PrintUtil.toPrettyString(patch) + ANSI_RESET);	
 				      
 				   	  try {
 				   		executeJsonPatch(patch, editor);
