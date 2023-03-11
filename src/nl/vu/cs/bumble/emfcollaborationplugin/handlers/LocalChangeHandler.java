@@ -5,7 +5,6 @@ import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.change.util.ChangeRecorder;
-import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emfcloud.modelserver.client.ModelServerClient;
 import org.eclipse.emfcloud.modelserver.client.Response;
@@ -20,26 +19,30 @@ public class LocalChangeHandler {
 	private String modelUri;
 	private String LOCAL_ECORE_PATH;
 	private EObject model;
+	
 	private static SubscribeListenerSwitch subscribeListenerSwitch;
+	
 	private static final Integer STATUS_OK = 200;
 	private static final String OP_SET = "replace";
 	private static final String OP_REMOVE = "remove";
 	private static final String OP_ADD = "add";
 	private static final String OP_UNKNOWN = "unknown";
 	
+	public static final String ANSI_RESET = "\u001B[0m";
+	public static final String ANSI_BOLD = "\033[1;30m";
 	
-	public LocalChangeHandler(Resource root, ModelServerClient client, 
-			String modelUri, 
-			String path, 
+	
+	public LocalChangeHandler(ModelHandler model, ModelServerClient client,  
 			LocalChangeListenerSwitch localListenerSwitch, 
 			SubscribeListenerSwitch subscribeListenerSwitch) {
 		this.client = client;
-		this.modelUri = modelUri;
-		this.LOCAL_ECORE_PATH = path;
-		this.model = root.getContents().get(0);
+		this.modelUri = model.getModelUri();
+		this.LOCAL_ECORE_PATH = model.getLocalPath();
+//		this.model = root.getContents().get(0);
+		this.model = model.getModel();
 		LocalChangeHandler.subscribeListenerSwitch = subscribeListenerSwitch;
 		
-		new ChangeRecorder(root) {
+		new ChangeRecorder(model.getResource()) {
 			
 			public void notifyChanged(Notification notification) {
 				
@@ -139,10 +142,10 @@ public class LocalChangeHandler {
 		
 
 		String payloadJson = converter.toJson(payload).get();
-		System.out.println("Patch SEND: " + payloadJson);
+		System.out.println(ANSI_BOLD + "Patch SEND: " + payloadJson + ANSI_RESET);
 		
 		Response<String> response = client.update(modelUri, payloadJson).join();
-		System.out.println("RESPONSE STATUS: " + response.getStatusCode());
+		System.out.println(ANSI_BOLD+ "RESPONSE STATUS: " + response.getStatusCode()+ ANSI_RESET);
 		
 //		if(!response.getStatusCode().equals(STATUS_OK) ) {
 //			System.out.println("response not ok code: " + response.getStatusCode());
