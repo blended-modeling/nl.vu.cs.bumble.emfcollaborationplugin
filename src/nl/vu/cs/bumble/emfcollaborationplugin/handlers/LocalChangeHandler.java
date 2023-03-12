@@ -209,20 +209,20 @@ public class LocalChangeHandler {
 		 * NOTICE: Only root model feature structure is get, if the meta-model allows adding child object,
 		 * this implementation fetch the wrong objects to count.
 		 * */
-		if(op == OP_ADD) {
-			
-			EStructuralFeature featureStructure = model.eClass().getEStructuralFeature(feature);
-			@SuppressWarnings("unchecked")
-			EList<EObject> list =(EList<EObject>)model.eGet(featureStructure);
-			
-			if(list.size() == notification.getPosition()) {
-				path = path + "/-" ;
-			}
-			else if(list.size() > notification.getPosition()) {
-				String position = Integer.toString(notification.getPosition());
-				path = path + "/" + position;
-			}
-		}
+//		if(op == OP_ADD) {
+//			
+//			EStructuralFeature featureStructure = model.eClass().getEStructuralFeature(feature);
+//			@SuppressWarnings("unchecked")
+//			EList<EObject> list =(EList<EObject>)model.eGet(featureStructure);
+//			
+//			if(list.size() == notification.getPosition()) {
+//				path = path + "/-" ;
+//			}
+//			else if(list.size() > notification.getPosition()) {
+//				String position = Integer.toString(notification.getPosition());
+//				path = path + "/" + position;
+//			}
+//		}
 		
 		return path;
 	}
