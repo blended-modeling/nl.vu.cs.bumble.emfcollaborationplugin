@@ -215,7 +215,10 @@ public class LocalChangeHandler {
 			@SuppressWarnings("unchecked")
 			EList<EObject> list =(EList<EObject>)model.eGet(featureStructure);
 			
-			if(list.size() > notification.getPosition()) {
+			if(list.size() == notification.getPosition()) {
+				path = path + "/-" ;
+			}
+			else if(list.size() > notification.getPosition()) {
 				String position = Integer.toString(notification.getPosition());
 				path = path + "/" + position;
 			}
